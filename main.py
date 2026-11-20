@@ -1365,12 +1365,23 @@ def build():
         strip += "  |  %s %d" % (r, counts.get(r, 0))
     draw_centered(cv, serif_b, W // 2, 94, strip, 12, NAVY)
 
-    # numbers strip
+    # numbers strip: each box gets its own accent -- a tinted
+    # background, a coloured border and the number in that colour
+    # (same rotation as the also-list numbers, plus orange and gold)
+    NUM_BOXES = [
+        (RED, (248, 232, 232)),
+        (BLUE, (232, 240, 248)),
+        (TEAL, (228, 242, 244)),
+        (PURPLE, (240, 234, 248)),
+        (ORANGE, (255, 240, 224)),
+        (GOLD, (248, 242, 222)),
+    ]
     for i, (num, label) in enumerate(NUMBERS):
         x = 24 + i * 163
-        cv.fill_rect(x, 102, 160, 46, LIGHT)
-        cv.rect_outline(x, 102, 160, 46, MIDGREY, 1)
-        draw_centered(cv, serif_b, x + 80, 128, num, 21, NAVY)
+        col, tint = NUM_BOXES[i]
+        cv.fill_rect(x, 102, 160, 46, tint)
+        cv.rect_outline(x, 102, 160, 46, col, 2)
+        draw_centered(cv, serif_b, x + 80, 128, num, 21, col)
         draw_centered(cv, serif_b, x + 80, 144, label, 9, INK)
 
     # three leads: art, then tag, headline and deck right under it
