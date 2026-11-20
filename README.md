@@ -2,9 +2,13 @@
 
 A pure-stdlib Python program that draws one 1024x1024 newspaper front
 page summing up the world news of Friday 20 November 2026: 33 stories
-(3 illustrated leads, 8 pictured medium stories, 22 more in brief), a
-world map with numbered pins, a six-number stat strip, a DATE CHECK box
-and a source footer. The masthead sits on a dark navy band.
+(3 illustrated leads, 10 pictured medium stories, 20 more in brief), a
+world map with 14 numbered pins, a six-number stat strip, a DATE CHECK
+box and a source footer. The masthead sits on a dark navy band. v2
+restyles every picture as a futuristic HUD panel (dark navy, neon and
+gold, corner brackets, dot-matrix map) and promotes the Wellington
+cricket and Las Vegas GP briefs to pictured mediums, adding Oceania
+as the seventh region; the story total stays 33.
 
 Run it with no arguments:
 

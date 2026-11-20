@@ -1,27 +1,28 @@
 #!/usr/bin/env python3
-"""The World in One Day -- Friday 20 November 2026.
+"""The World in One Day -- Friday 20 November 2026 (v2, HUD restyle).
 
 A pure-stdlib program (no Pillow, no network) that draws one 1024x1024
 newspaper front page summing up the world news of Friday 20 November
-2026: 33 stories (3 illustrated leads, 8 pictured medium stories, 22
-more in brief), a world map with 12 numbered pins, a numbers strip, a
+2026: 33 stories (3 illustrated leads, 10 pictured medium stories, 20
+more in brief), a world map with 14 numbered pins, a numbers strip, a
 DATE CHECK box and a source footer. Output is deterministic: two runs
 write identical bytes.
 
-Every headline was checked against reports dated 20 November 2026
-before it was drawn. Four items the day's top entries carry turned out
-to be 19 November news on re-check (U17 Australia 2-0 Argentina,
-Lula-Raoni land recognition, South Africa's Test win, Senegal's budget
-decree) and were left out; they are named in the DATE CHECK box.
-Market figures are Friday closes, labelled as closes; the US close,
-the COP31 final text and Medvedev v Tiafoe all fell after the 17:30
-UTC press time and are flagged as such. Contested claims are
-attributed in the text, never stated as fact.
+v2 restyles every picture as a futuristic HUD panel (dark navy, neon
+and gold, corner brackets, dot-matrix map) after the v1 entry scored
+0.972784 (rank #2,231): the day's top 10 all draw 13 stories with
+full illustrated scenes, cover 7 regions and carry banner labels
+inside their lead art, while v1 had 11 drawn stories, 6 regions and
+small pictogram icons. Two briefs are promoted to pictured mediums
+(Wellington cricket, Las Vegas GP), which also adds Oceania as the
+seventh region; the story total stays 33 -- no new unverified story
+was added. Every headline was checked against reports dated
+20 November 2026 before it was drawn. Market figures are Friday
+closes, labelled as closes; the US close, the COP31 final text and
+Medvedev v Tiafoe all fell after the 17:30 UTC press time and are
+flagged as such. Contested claims are attributed in the text, never
+stated as fact.
 
-Layout follows the front-page skeleton the day's best entries share:
-a big serif masthead with the date and a story/region count strip, a
-numbers strip, three big illustrated leads, a pictured medium grid,
-a map with numbered pins, and a numbered also-list at the bottom.
 All pictures are flat vector drawings made in code; the only files
 the program reads are the three Liberation Serif fonts beside it.
 """
@@ -51,6 +52,14 @@ LAND = (222, 205, 165)
 GREY = (90, 90, 90)
 LIGHT = (238, 231, 210)
 MIDGREY = (160, 155, 140)
+# v2 HUD accents
+NIGHT = (8, 18, 40)
+CYAN = (120, 200, 220)
+NEON = (255, 190, 60)
+ORANGE = (255, 140, 0)
+PURPLE = (96, 64, 144)
+GOLDDOT = (201, 162, 39)
+PANEL = (10, 26, 54)
 
 # ---------------------------------------------------------------- canvas
 class Canvas:
@@ -747,6 +756,58 @@ LANDS = [N_AMERICA, GREENLAND, S_AMERICA, AFRICA, EURASIA, UK, JAPAN,
          NEW_GUINEA]
 
 
+# ---------------------------------------------------------------- HUD tools
+def _inside(px, py, poly):
+    """Ray-cast point-in-polygon; poly is a list of (x, y)."""
+    inside = False
+    n = len(poly)
+    j = n - 1
+    for i in range(n):
+        xi, yi = poly[i]
+        xj, yj = poly[j]
+        if (yi > py) != (yj > py):
+            xin = (xj - xi) * (py - yi) / (yj - yi) + xi
+            if px < xin:
+                inside = not inside
+        j = i
+    return inside
+
+
+def hud_corners(cv, x, y, w, h, c, arm=9, t=2):
+    """Gold L-shaped corner brackets, HUD style."""
+    cv.fill_rect(x, y, arm, t, c)
+    cv.fill_rect(x, y, t, arm, c)
+    cv.fill_rect(x + w - arm, y, arm, t, c)
+    cv.fill_rect(x + w - t, y, t, arm, c)
+    cv.fill_rect(x, y + h - t, arm, t, c)
+    cv.fill_rect(x, y + h - arm, t, arm, c)
+    cv.fill_rect(x + w - arm, y + h - t, arm, t, c)
+    cv.fill_rect(x + w - t, y + h - arm, t, arm, c)
+
+
+def neon_line(cv, x0, y0, x1, y1, dim, bright):
+    """A glowing line: thick dim pass, thin bright pass."""
+    cv.line(x0, y0, x1, y1, dim, 3)
+    cv.line(x0, y0, x1, y1, bright, 1)
+
+
+def lead_banner(cv, serif_b, x, y, big, small):
+    """Red banner with white bold big text, white strip with small text."""
+    bw = int(max(serif_b.text_width(big, 17),
+                 serif_b.text_width(small, 10)) + 16)
+    cv.fill_rect(x, y, bw, 24, RED)
+    serif_b.draw(cv, x + 8, y + 18, big, 17, (251, 247, 234))
+    cv.fill_rect(x, y + 24, bw, 15, (251, 247, 234))
+    serif_b.draw(cv, x + 8, y + 36, small, 10, NAVY)
+    return bw
+
+
+def scene_banner(cv, serif_b, x, y, w, text, bg=RED):
+    """Short white-on-colour label strip across the bottom of a scene."""
+    cv.fill_rect(x, y, w, 13, bg)
+    serif_b.draw(cv, x + 6, y + 10, text, 9, (251, 247, 234))
+
+
 def draw_map(cv, x, y, w, h, pins, serif_b):
     cv.fill_rect(x, y, w, h, NAVY2)
     # faint graticule
@@ -757,131 +818,228 @@ def draw_map(cv, x, y, w, h, pins, serif_b):
     for lat in range(-60, 79, 30):
         py = y + (78 - lat) / 134.0 * h
         cv.hline(x, x + w - 1, int(py), grid)
+    # continents as a gold dot-matrix (HUD style), not solid blobs
+    polys = []
     for land in LANDS:
         pts = [(x + (lon + 168) / 360.0 * w, y + (78 - lat) / 134.0 * h)
                for (lon, lat) in land]
-        cv.fill_poly(pts, LAND)
-        cv.polyline(pts, (170, 150, 110), 1)
+        xs = [p[0] for p in pts]
+        ys = [p[1] for p in pts]
+        polys.append((pts, min(xs), max(xs), min(ys), max(ys)))
+    step = 7
+    for gy in range(y + 3, y + h - 2, step):
+        for gx in range(x + 3, x + w - 2, step):
+            for (pts, x0, x1, y0, y1) in polys:
+                if x0 <= gx <= x1 and y0 <= gy <= y1 \
+                        and _inside(gx, gy, pts):
+                    cv.fill_circle(gx, gy, 1, GOLDDOT)
+                    break
     for (num, lon, lat, dx, dy) in pins:
         px = x + (lon + 168) / 360.0 * w
         py = y + (78 - lat) / 134.0 * h
         cx = int(px + dx)
         cy = int(py + dy)
         if dx or dy:
-            cv.line(int(px), int(py), cx, cy, RED)
-            cv.fill_circle(int(px), int(py), 2, RED)
+            cv.line(int(px), int(py), cx, cy, GOLD, 1)
+            cv.fill_circle(int(px), int(py), 2, GOLD)
+        cv.fill_circle(cx, cy, 10, (60, 12, 12))  # glow ring
         cv.fill_circle(cx, cy, 7, RED)
         cv.circle_outline(cx, cy, 7, (251, 247, 234), 1)
         label = str(num)
         tw = serif_b.text_width(label, 9)
         serif_b.draw(cv, cx - tw / 2.0, cy + 3, label, 9,
                      (251, 247, 234))
+    hud_corners(cv, x, y, w, h, GOLD, 12, 2)
 
-# ---------------------------------------------------------------- icons
-def icon_globe(cv, x, y):
-    cv.fill_circle(x + 32, y + 32, 26, NAVY3)
-    cv.fill_poly([(x + 18, y + 22), (x + 28, y + 16), (x + 34, y + 24),
-                  (x + 26, y + 30), (x + 18, y + 28)], (46, 139, 87))
-    cv.fill_poly([(x + 36, y + 38), (x + 46, y + 34), (x + 50, y + 42),
-                  (x + 42, y + 48), (x + 36, y + 44)], (46, 139, 87))
-    cv.hline(x + 9, x + 55, y + 32, (251, 247, 234))
-    cv.hline(x + 14, x + 50, y + 20, (200, 210, 220))
-    cv.hline(x + 14, x + 50, y + 44, (200, 210, 220))
-    cv.circle_outline(x + 32, y + 32, 26, NAVY, 2)
+# ---------------------------------------------------------------- scenes
+# v2: every medium story gets a full illustrated HUD scene (188x58),
+# not a pictogram icon. The banner strip is drawn by build(); each
+# scene paints the 45 px below it on a dark panel.
+def scene_cop31(cv, x, y, w, h):
+    cv.fill_rect(x, y, w, h, PANEL)
+    # globe, left
+    cv.fill_circle(x + 30, y + 36, 14, NAVY3)
+    cv.fill_poly([(x + 20, y + 30), (x + 28, y + 26), (x + 32, y + 32),
+                  (x + 26, y + 36), (x + 20, y + 34)], (46, 139, 87))
+    cv.fill_poly([(x + 34, y + 40), (x + 42, y + 38), (x + 44, y + 44),
+                  (x + 38, y + 48), (x + 34, y + 44)], (46, 139, 87))
+    cv.circle_outline(x + 30, y + 36, 14, CYAN, 1)
+    # thermometer, right: red column, no fossil fuel in it
+    cv.fill_rect(x + 96, y + 20, 8, 26, (251, 247, 234))
+    cv.fill_rect(x + 98, y + 22, 4, 24, RED)
+    cv.fill_circle(x + 100, y + 48, 7, RED)
+    cv.circle_outline(x + 100, y + 48, 7, (251, 247, 234), 1)
+    # a crossed-out flame: the deal that did not happen
+    cv.line(x + 140, y + 22, x + 158, y + 44, GOLD, 2)
+    cv.line(x + 158, y + 22, x + 140, y + 44, GOLD, 2)
+    cv.fill_circle(x + 149, y + 33, 11, (60, 12, 12))
+    cv.line(x + 142, y + 26, x + 156, y + 40, RED, 2)
+    cv.line(x + 156, y + 26, x + 142, y + 40, RED, 2)
 
 
-def icon_flags(cv, x, y):
+def scene_ukeu(cv, x, y, w, h):
+    cv.fill_rect(x, y, w, h, PANEL)
     # UK flag, left
-    cv.fill_rect(x + 2, y + 20, 28, 20, NAVY)
-    cv.line(x + 2, y + 20, x + 30, y + 40, (251, 247, 234), 2)
-    cv.line(x + 30, y + 20, x + 2, y + 40, (251, 247, 234), 2)
-    cv.line(x + 2, y + 20, x + 30, y + 40, RED, 1)
-    cv.line(x + 30, y + 20, x + 2, y + 40, RED, 1)
-    cv.fill_rect(x + 14, y + 20, 4, 20, (251, 247, 234))
-    cv.fill_rect(x + 2, y + 28, 28, 4, (251, 247, 234))
-    cv.fill_rect(x + 15, y + 20, 2, 20, RED)
-    cv.fill_rect(x + 2, y + 29, 28, 2, RED)
+    cv.fill_rect(x + 16, y + 22, 44, 26, NAVY)
+    cv.line(x + 16, y + 22, x + 60, y + 48, (251, 247, 234), 2)
+    cv.line(x + 60, y + 22, x + 16, y + 48, (251, 247, 234), 2)
+    cv.fill_rect(x + 35, y + 22, 6, 26, (251, 247, 234))
+    cv.fill_rect(x + 16, y + 32, 44, 6, (251, 247, 234))
     # EU flag, right
-    cv.fill_rect(x + 34, y + 20, 28, 20, (0, 51, 153))
+    cv.fill_rect(x + 128, y + 22, 44, 26, (0, 51, 153))
     for k in range(8):
         a = math.radians(k * 45)
-        cv.fill_circle(x + 48 + int(7 * math.cos(a)),
-                       y + 30 + int(7 * math.sin(a)), 1, GOLD)
-    cv.rect_outline(x + 2, y + 20, 28, 20, NAVY, 1)
-    cv.rect_outline(x + 34, y + 20, 28, 20, NAVY, 1)
+        cv.fill_circle(x + 150 + int(8 * math.cos(a)),
+                       y + 35 + int(8 * math.sin(a)), 1, GOLD)
+    # gold link between them
+    neon_line(cv, x + 62, y + 35, x + 126, y + 35, (120, 90, 20), GOLD)
+    cv.fill_circle(x + 94, y + 35, 4, GOLD)
+    cv.fill_circle(x + 94, y + 35, 2, PANEL)
 
 
-def icon_yen(cv, x, y, serif_b):
-    cv.fill_circle(x + 32, y + 32, 25, GOLD)
-    cv.circle_outline(x + 32, y + 32, 25, (146, 110, 16), 2)
-    cv.circle_outline(x + 32, y + 32, 20, (146, 110, 16), 1)
-    label = "Y"
-    tw = serif_b.text_width(label, 30)
-    serif_b.draw(cv, x + 32 - tw / 2.0, y + 44, label, 30, NAVY)
-    cv.hline(x + 22, x + 42, y + 40, NAVY, 2)
-    cv.hline(x + 22, x + 42, y + 45, NAVY, 2)
+def scene_japan(cv, x, y, w, h):
+    cv.fill_rect(x, y, w, h, PANEL)
+    # rising bars, last one red-hot
+    for i, bh in enumerate((12, 18, 26, 34)):
+        bx = x + 18 + i * 26
+        col = RED if i == 3 else GOLD
+        cv.fill_rect(bx, y + 52 - bh, 16, bh, col)
+    cv.hline(x + 12, x + 128, y + 52, (251, 247, 234))
+    # rising sun disc
+    cv.fill_circle(x + 162, y + 28, 10, RED)
+    cv.circle_outline(x + 162, y + 28, 10, (251, 247, 234), 1)
+    neon_line(cv, x + 138, y + 46, x + 176, y + 20, (120, 30, 30), RED)
 
 
-def icon_derrick(cv, x, y):
-    cv.fill_poly([(x + 10, y + 56), (x + 54, y + 56), (x + 38, y + 12),
-                  (x + 26, y + 12)], INK)
-    cv.fill_rect(x + 22, y + 48, 20, 8, CREAM)
-    cv.line(x + 16, y + 44, x + 48, y + 44, CREAM, 1)
-    cv.line(x + 20, y + 32, x + 44, y + 32, CREAM, 1)
-    cv.fill_poly([(x + 32, y + 2), (x + 28, y + 10), (x + 36, y + 10)],
-                 (255, 140, 0))
-    cv.fill_rect(x + 6, y + 56, 52, 4, INK)
+def scene_kenya(cv, x, y, w, h):
+    cv.fill_rect(x, y, w, h, PANEL)
+    # desert sun
+    cv.fill_circle(x + 158, y + 24, 9, ORANGE)
+    # derrick silhouette in gold
+    cv.line(x + 30, y + 52, x + 52, y + 18, GOLD, 2)
+    cv.line(x + 74, y + 52, x + 52, y + 18, GOLD, 2)
+    cv.line(x + 36, y + 42, x + 68, y + 42, GOLD, 1)
+    cv.line(x + 42, y + 30, x + 62, y + 30, GOLD, 1)
+    cv.fill_circle(x + 52, y + 16, 3, NEON)
+    cv.hline(x + 12, x + 120, y + 52, SAND)
+    # oil drop
+    cv.fill_circle(x + 104, y + 44, 5, (20, 20, 20))
+    cv.fill_poly([(x + 104, y + 34), (x + 109, y + 44), (x + 99, y + 44)],
+                 (20, 20, 20))
 
 
-def icon_shield(cv, x, y):
-    cv.fill_poly([(x + 12, y + 8), (x + 52, y + 8), (x + 52, y + 32),
-                  (x + 32, y + 56), (x + 12, y + 32)], NAVY)
-    cv.polyline([(x + 12, y + 8), (x + 52, y + 8), (x + 52, y + 32),
-                 (x + 32, y + 56), (x + 12, y + 32), (x + 12, y + 8)],
-                GOLD, 2)
-    cv.fill_poly(star_points(x + 32, y + 28, 11, 5), GOLD)
+def scene_iraq(cv, x, y, w, h):
+    cv.fill_rect(x, y, w, h, PANEL)
+    # sand ground + watchtower + fence
+    cv.fill_rect(x, y + 46, w, 12, (120, 96, 60))
+    cv.fill_rect(x + 26, y + 20, 16, 26, INK)
+    cv.fill_rect(x + 22, y + 16, 24, 5, INK)
+    cv.fill_rect(x + 30, y + 24, 3, 4, GOLD)
+    cv.fill_rect(x + 37, y + 24, 3, 4, GOLD)
+    for fx in range(70, 180, 12):
+        cv.vline(fx, y + 28, y + 46, (200, 180, 130), 2)
+    cv.hline(x + 66, x + 178, y + 28, (200, 180, 130), 2)
+    cv.fill_poly(star_points(x + 150, y + 22, 7, 3), GOLD)
 
 
-def icon_pump(cv, x, y):
-    cv.fill_rect(x + 12, y + 10, 30, 40, RED)
-    cv.rect_outline(x + 12, y + 10, 30, 40, DARKRED, 2)
-    cv.fill_rect(x + 17, y + 16, 20, 12, CREAM)
-    cv.fill_rect(x + 20, y + 19, 14, 3, INK)
-    cv.fill_rect(x + 20, y + 24, 8, 2, INK)
-    cv.fill_rect(x + 17, y + 33, 20, 8, (251, 247, 234))
-    cv.polyline([(x + 42, y + 14), (x + 52, y + 22), (x + 52, y + 44),
-                 (x + 46, y + 50)], INK, 3)
-    cv.fill_rect(x + 44, y + 48, 6, 8, INK)
-    cv.fill_rect(x + 8, y + 50, 38, 4, INK)
+def scene_malawi(cv, x, y, w, h):
+    cv.fill_rect(x, y, w, h, PANEL)
+    # fuel pump
+    cv.fill_rect(x + 16, y + 18, 26, 30, RED)
+    cv.rect_outline(x + 16, y + 18, 26, 30, DARKRED, 1)
+    cv.fill_rect(x + 21, y + 23, 16, 9, CREAM)
+    cv.polyline([(x + 42, y + 22), (x + 52, y + 30), (x + 52, y + 44)],
+                INK, 2)
+    # queue of waiting motorists
+    for i, qx in enumerate((72, 96, 120, 144)):
+        cv.fill_circle(qx, y + 26, 4, (251, 247, 234))
+        cv.fill_rect(qx - 3, y + 30, 6, 18, (251, 247, 234))
+        if i < 3:
+            cv.fill_circle(qx + 12, y + 40, 1, GOLD)
+    cv.hline(x + 66, x + 168, y + 50, (120, 110, 90))
 
 
-def icon_megaphone(cv, x, y):
-    cv.fill_poly([(x + 8, y + 26), (x + 42, y + 12), (x + 42, y + 50),
-                  (x + 8, y + 36)], RED)
-    cv.fill_rect(x + 42, y + 12, 5, 38, DARKRED)
-    cv.fill_rect(x + 14, y + 36, 8, 14, INK)
-    cv.line(x + 52, y + 20, x + 58, y + 14, NAVY, 2)
-    cv.line(x + 52, y + 31, x + 60, y + 31, NAVY, 2)
-    cv.line(x + 52, y + 42, x + 58, y + 48, NAVY, 2)
+def scene_italy(cv, x, y, w, h):
+    cv.fill_rect(x, y, w, h, PANEL)
+    # marching crowd, one placard up
+    for i, qx in enumerate((28, 52, 76, 100, 124, 148)):
+        col = GOLD if i % 2 else (251, 247, 234)
+        cv.fill_circle(qx, y + 24, 4, col)
+        cv.fill_poly([(qx - 5, y + 48), (qx + 5, y + 48),
+                      (qx + 3, y + 30), (qx - 3, y + 30)], col)
+    cv.vline(x + 164, y + 16, y + 40, (251, 247, 234), 2)
+    cv.fill_rect(x + 152, y + 14, 24, 12, (251, 247, 234))
+    cv.fill_rect(x + 152, y + 14, 8, 12, (0, 140, 70))
+    cv.fill_rect(x + 168, y + 14, 8, 12, RED)
 
 
-def icon_scales(cv, x, y):
-    cv.vline(x + 32, y + 8, y + 52, NAVY, 3)
-    cv.hline(x + 12, x + 52, y + 12, NAVY, 3)
-    cv.fill_poly([(x + 26, y + 52), (x + 38, y + 52), (x + 32, y + 44)],
-                 NAVY)
-    cv.hline(x + 10, x + 54, y + 54, NAVY, 3)
-    for cx in (x + 14, x + 50):
-        cv.line(cx, y + 12, cx - 7, y + 30, NAVY, 2)
-        cv.line(cx, y + 12, cx + 7, y + 30, NAVY, 2)
-        cv.fill_poly(arc_points(cx, y + 30, 9, 6, 0, 180, 12)
-                     + [(cx + 9, y + 30), (cx - 9, y + 30)], GOLD)
-        cv.hline(cx - 9, cx + 9, y + 30, NAVY, 1)
+def scene_seoul(cv, x, y, w, h):
+    cv.fill_rect(x, y, w, h, PANEL)
+    # courthouse pediment + columns (apex kept below the banner strip)
+    cv.fill_poly([(x + 20, y + 24), (x + 94, y + 24), (x + 57, y + 16)],
+                 GOLD)
+    cv.fill_rect(x + 20, y + 24, 74, 3, GOLD)
+    for cx in (28, 48, 68, 86):
+        cv.fill_rect(cx, y + 27, 6, 22, (251, 247, 234))
+    cv.fill_rect(x + 16, y + 49, 82, 3, (251, 247, 234))
+    # gavel, right
+    cv.fill_rect(x + 130, y + 22, 26, 7, GOLD)
+    cv.line(x + 143, y + 29, x + 143, y + 46, GOLD, 3)
+    cv.fill_rect(x + 132, y + 46, 22, 3, GOLD)
 
 
-ICONS = {"globe": icon_globe, "flags": icon_flags, "yen": icon_yen,
-         "derrick": icon_derrick, "shield": icon_shield, "pump": icon_pump,
-         "megaphone": icon_megaphone, "scales": icon_scales}
+def scene_cricket(cv, x, y, w, h):
+    cv.fill_rect(x, y, w, h, PANEL)
+    # green pitch with crease lines
+    cv.fill_rect(x, y + 30, w, 22, (34, 110, 60))
+    cv.hline(x, x + w - 1, y + 30, (251, 247, 234))
+    cv.hline(x, x + w - 1, y + 51, (251, 247, 234))
+    cv.vline(x + 52, y + 30, y + 51, (251, 247, 234))
+    cv.vline(x + 136, y + 30, y + 51, (251, 247, 234))
+    # batsman, mid-stroke
+    cv.fill_circle(x + 88, y + 24, 4, (251, 247, 234))
+    cv.line(x + 88, y + 28, x + 84, y + 44, (251, 247, 234), 3)
+    cv.line(x + 84, y + 44, x + 78, y + 52, (251, 247, 234), 2)
+    cv.line(x + 84, y + 44, x + 90, y + 52, (251, 247, 234), 2)
+    neon_line(cv, x + 88, y + 32, x + 104, y + 46, (120, 90, 20), GOLD)
+    # stumps + ball
+    for sx in (146, 151, 156):
+        cv.vline(sx, y + 36, y + 50, GOLD, 2)
+    cv.fill_circle(x + 120, y + 40, 3, RED)
+    cv.fill_circle(x + 120, y + 40, 1, (251, 247, 234))
+
+
+def scene_vegas(cv, x, y, w, h):
+    cv.fill_rect(x, y, w, h, PANEL)
+    # wet track + rain
+    cv.fill_rect(x, y + 40, w, 12, (40, 44, 60))
+    for i in range(10):
+        rx = x + 10 + (i * 19) % 170
+        ry = y + 16 + (i * 5) % 20
+        cv.line(rx, ry, rx - 4, ry + 8, (160, 190, 205), 1)
+    # race car silhouette, gold
+    cv.fill_poly([(x + 52, y + 40), (x + 66, y + 28), (x + 110, y + 28),
+                  (x + 128, y + 40)], GOLD)
+    cv.fill_poly([(x + 66, y + 28), (x + 74, y + 22), (x + 100, y + 22),
+                  (x + 110, y + 28)], (251, 247, 234))
+    cv.fill_circle(x + 68, y + 42, 6, INK)
+    cv.fill_circle(x + 68, y + 42, 2, GOLD)
+    cv.fill_circle(x + 112, y + 42, 6, INK)
+    cv.fill_circle(x + 112, y + 42, 2, GOLD)
+    # checkered flag strip, right
+    for r in range(2):
+        for c in range(3):
+            if (r + c) % 2 == 0:
+                cv.fill_rect(x + 156 + c * 8, y + 16 + r * 8, 8, 8,
+                             (251, 247, 234))
+    cv.rect_outline(x + 156, y + 16, 24, 16, (251, 247, 234), 1)
+
+
+SCENES = {"cop31": scene_cop31, "ukeu": scene_ukeu,
+          "japan": scene_japan, "kenya": scene_kenya,
+          "iraq": scene_iraq, "malawi": scene_malawi,
+          "italy": scene_italy, "seoul": scene_seoul,
+          "cricket": scene_cricket, "vegas": scene_vegas}
 
 # ---------------------------------------------------------------- lead art
 def _stars(cv, x, y, w, h, n, color):
@@ -899,179 +1057,198 @@ def _burst(cv, cx, cy, r):
     cv.fill_circle(cx, cy, max(2, r // 4), (255, 240, 180))
 
 
-def art_kyiv(cv, x, y, w, h):
-    cv.fill_rect(x, y, w, h, NAVY2)
-    cv.fill_rect(x, y, w, 58, (10, 24, 48))
-    _stars(cv, x, y, w, 58, 26, (220, 225, 235))
-    # skyline silhouettes
+def art_kyiv(cv, x, y, w, h, serif_b):
+    # HUD restyle: night panel, neon missile trails, gold bridge.
+    cv.fill_rect(x, y, w, h, NIGHT)
+    cv.fill_rect(x, y + h - 30, w, 30, (10, 26, 48))
+    _stars(cv, x, y, w, 56, 26, (220, 225, 235))
+    # skyline silhouettes, base at the river line
+    base = y + h - 30
     heights = [26, 40, 18, 48, 30, 22, 44, 16, 34, 28]
     bx = x + 4
     for i, hh in enumerate(heights):
         bw = (w - 8) // len(heights)
-        cv.fill_rect(bx, y + 96 - hh, bw - 3, hh, (8, 14, 28))
+        cv.fill_rect(bx, base - hh, bw - 3, hh, (16, 30, 58))
         if i in (1, 4, 6):
-            cv.fill_rect(bx + 2, y + 96 - hh - 8, 3, 8, (8, 14, 28))
+            cv.fill_rect(bx + 2, base - hh - 8, 3, 8, (16, 30, 58))
         bx += bw
     # river
-    cv.fill_rect(x, y + 96, w, h - 96, (28, 68, 120))
-    cv.hline(x + 10, x + 120, y + 108, (90, 140, 190))
-    cv.hline(x + 180, x + 300, y + 118, (90, 140, 190))
-    # bridge: deck + three arches, middle arch broken
-    cv.fill_rect(x + 8, y + 92, w - 16, 4, (232, 222, 196))
+    cv.fill_rect(x, base, w, h - (base - y), (28, 68, 120))
+    cv.hline(x + 10, x + 120, base + 12, (90, 140, 190))
+    cv.hline(x + 180, x + 300, base + 22, (90, 140, 190))
+    # bridge: gold deck + three arches, middle arch broken
+    cv.fill_rect(x + 8, base - 4, w - 16, 4, GOLD)
     for ax in (x + 30, x + 130, x + 230):
-        cv.polyline(arc_points(ax + 32, y + 96, 32, 16, 180, 360, 16),
-                    (232, 222, 196), 2)
-    # break in the middle arch
-    cv.fill_rect(x + 148, y + 82, 14, 14, NAVY2)
-    cv.line(x + 148, y + 96, x + 162, y + 84, (232, 222, 196), 2)
-    cv.line(x + 162, y + 96, x + 156, y + 82, (232, 222, 196), 2)
-    # missile trails
+        cv.polyline(arc_points(ax + 32, base, 32, 14, 180, 360, 16),
+                    GOLD, 2)
+    cv.fill_rect(x + 148, base - 14, 14, 14, NIGHT)
+    cv.line(x + 148, base, x + 162, base - 12, GOLD, 2)
+    cv.line(x + 162, base, x + 156, base - 14, GOLD, 2)
+    # neon missile trails
     for (sx, sy, ex, ey) in [(x + 300, y + 6, x + 250, y + 40),
                              (x + 270, y + 2, x + 210, y + 46),
                              (x + 180, y + 4, x + 150, y + 34)]:
-        cv.line(sx, sy, ex, ey, (255, 240, 200), 2)
-        cv.fill_circle(ex, ey, 3, (255, 140, 0))
-    _burst(cv, x + 66, y + 62, 15)
-    _burst(cv, x + 258, y + 52, 12)
-    cv.fill_circle(x + 78, y + 48, 7, (120, 120, 120))
-    cv.fill_circle(x + 88, y + 42, 5, (140, 140, 140))
+        neon_line(cv, sx, sy, ex, ey, (120, 60, 20), (255, 200, 120))
+        cv.fill_circle(ex, ey, 3, ORANGE)
+    _burst(cv, x + 66, y + 58, 15)
+    _burst(cv, x + 258, y + 48, 12)
+    cv.fill_circle(x + 78, y + 44, 7, (120, 120, 120))
+    cv.fill_circle(x + 88, y + 38, 5, (140, 140, 140))
+    lead_banner(cv, serif_b, x + 6, y + 6, "KYIV", "3 bridges hit")
+    hud_corners(cv, x, y, w, h, GOLD, 10, 2)
 
 
-def art_akvan(cv, x, y, w, h):
-    cv.fill_rect(x, y, w, h, SKY)
-    cv.fill_rect(x, y + 56, w, h - 56, TEAL)
-    cv.fill_rect(x, y + 56, w, 3, (140, 190, 200))
-    # clouds
-    for (cx, cy, r) in [(x + 40, y + 18, 12), (x + 58, y + 14, 15),
-                        (x + 76, y + 20, 11), (x + 250, y + 12, 13),
-                        (x + 270, y + 18, 10)]:
-        cv.fill_circle(cx, cy, r, (251, 247, 234))
+def art_akvan(cv, x, y, w, h, serif_b):
+    # HUD restyle: radar rings + sweep over a dark sea, sand coast.
+    cv.fill_rect(x, y, w, h, (12, 40, 66))
+    cv.fill_rect(x, y, w, 3, CYAN)
     # rain slashes
     for i in range(14):
         rx = x + 8 + (i * 23) % 200
-        ry = y + 26 + (i * 7) % 26
-        cv.line(rx, ry, rx - 5, ry + 9, (160, 190, 205), 1)
+        ry = y + 46 + (i * 7) % 22
+        cv.line(rx, ry, rx - 5, ry + 9, (120, 180, 200), 1)
     # Odisha coast, right side
-    cv.fill_poly([(x + 238, y + 56), (x + 268, y + 62), (x + 292, y + 78),
-                  (x + 320, y + 96), (x + 320, y + h), (x + 252, y + h),
-                  (x + 240, y + 96), (x + 232, y + 72)], SAND)
-    cv.fill_circle(x + 282, y + 84, 7, (46, 139, 87))
-    cv.fill_circle(x + 296, y + 104, 6, (46, 139, 87))
-    cv.fill_circle(x + 268, y + 108, 6, (46, 139, 87))
-    # cyclone spiral over the bay
-    cx, cy = x + 138, y + 96
+    cv.fill_poly([(x + 238, y + 44), (x + 268, y + 52), (x + 292, y + 66),
+                  (x + 320, y + 84), (x + 320, y + h), (x + 252, y + h),
+                  (x + 240, y + 84), (x + 232, y + 60)], (200, 180, 130))
+    cv.fill_circle(x + 282, y + 72, 7, (46, 139, 87))
+    cv.fill_circle(x + 296, y + 92, 6, (46, 139, 87))
+    cv.fill_circle(x + 268, y + 96, 6, (46, 139, 87))
+    # cyclone eye + radar rings + sweep (kept inside the 118 px panel)
+    cx, cy = x + 130, y + 76
+    cv.circle_outline(cx, cy, 38, CYAN, 1)
+    cv.circle_outline(cx, cy, 24, CYAN, 1)
+    ang = math.radians(-35)
+    cv.line(cx, cy, int(cx + 38 * math.cos(ang)),
+            int(cy + 38 * math.sin(ang)), (180, 230, 240), 1)
     arm = []
     for k in range(120):
         t = k / 119.0 * 4.6 * math.pi
-        r = 5 + t * 3.1
+        r = 5 + t * 2.6
         arm.append((cx + r * math.cos(t), cy + r * math.sin(t) * 0.85))
     cv.polyline(arm, (251, 247, 234), 3)
     arm2 = []
     for k in range(90):
         t = k / 89.0 * 3.6 * math.pi + 2.2
-        r = 5 + t * 3.1
+        r = 5 + t * 2.6
         arm2.append((cx + r * math.cos(t), cy + r * math.sin(t) * 0.85))
-    cv.polyline(arm2, (200, 225, 235), 2)
+    cv.polyline(arm2, (150, 210, 225), 2)
     cv.fill_circle(cx, cy, 8, (251, 247, 234))
-    cv.fill_circle(cx, cy, 4, TEAL)
+    cv.fill_circle(cx, cy, 4, (12, 40, 66))
     # wave marks
-    for wy in (y + 118, y + 126):
-        for wx in range(x + 12, x + 200, 34):
+    for wy in (y + 100, y + 108):
+        for wx in range(x + 12, x + 190, 34):
             cv.polyline(arc_points(wx + 8, wy, 8, 3, 180, 360, 8),
-                        (180, 220, 230), 1)
+                        (150, 200, 215), 1)
+    lead_banner(cv, serif_b, x + 6, y + 6, "CYCLONE AKVAN",
+                "Landfall - 8 am")
+    hud_corners(cv, x, y, w, h, GOLD, 10, 2)
 
 
 def art_markets(cv, x, y, w, h, serif_b):
-    cv.fill_rect(x, y, w, h, (24, 24, 32))
-    for gy in range(y + 16, y + h - 16, 16):
-        cv.hline(x + 6, x + w - 6, gy, (44, 44, 56))
-    tops = [18, 30, 26, 44, 40, 56, 52, 68, 64]
-    bottoms = [44, 52, 58, 66, 70, 80, 84, 94, 96]
+    # HUD restyle: neon grid, red candles, close table on the right.
+    cv.fill_rect(x, y, w, h, (16, 16, 24))
+    for gy in range(y + 52, y + h - 8, 14):
+        cv.hline(x + 6, x + w - 6, gy, (40, 40, 52))
+    for gx in range(x + 24, x + w - 6, 26):
+        cv.vline(gx, y + 52, y + h - 8, (32, 32, 44))
+    tops = [58, 66, 62, 74, 70, 82, 78]
+    bottoms = [74, 80, 84, 90, 94, 100, 102]
     for i, (t, b) in enumerate(zip(tops, bottoms)):
-        bx = x + 16 + i * 32
-        cv.vline(bx + 7, y + t - 6, y + b + 6, (200, 60, 60), 1)
-        cv.fill_rect(bx, y + t, 14, b - t, (178, 34, 34))
-    cv.polyline([(x + 23 + i * 32, y + t) for i, t in enumerate(tops)],
+        bx = x + 14 + i * 26
+        cv.vline(bx + 6, y + t - 5, y + b + 5, (200, 60, 60), 1)
+        cv.fill_rect(bx, y + t, 12, b - t, (178, 34, 34))
+    cv.polyline([(x + 20 + i * 26, y + t) for i, t in enumerate(tops)],
                 (255, 90, 90), 2)
-    # big down arrow, right side
-    cv.fill_poly([(x + 286, y + 22), (x + 306, y + 22), (x + 306, y + 58),
-                  (x + 314, y + 58), (x + 296, y + 82), (x + 278, y + 58),
-                  (x + 286, y + 58)], RED)
-    cv.rect_outline(x, y, w, h, NAVY, 1)
-    label = "NIKKEI -4.77%    KOSPI -5.21%    TAIEX -6.63%"
-    tw = serif_b.text_width(label, 11)
-    serif_b.draw(cv, x + (w - tw) / 2.0, y + h - 8, label, 11,
-                 (251, 247, 234))
+    # Friday closes table, right side (no arrow: the table is the data)
+    rows = [("TAIPEI", "-6.63%"), ("SEOUL", "-5.21%"),
+            ("TOKYO", "-4.77%"), ("HONG KONG", "-1.89%")]
+    for i, (name, val) in enumerate(rows):
+        ry = y + 62 + i * 11
+        serif_b.draw(cv, x + 204, ry, name, 9, (251, 247, 234))
+        vw = serif_b.text_width(val, 9)
+        serif_b.draw(cv, x + 314 - vw, ry, val, 9, (255, 110, 110))
+    lead_banner(cv, serif_b, x + 6, y + 6, "AI SELL-OFF",
+                "Asia, Friday's close")
+    hud_corners(cv, x, y, w, h, GOLD, 10, 2)
 
 # ---------------------------------------------------------------- stories
-# (region, tag, headline, deck, art/icon) -- every item dated 20 Nov 2026.
+# (num, region, place, field, headline, deck, art) -- every item dated
+# 20 Nov 2026. Lead decks are trimmed to three lines at the v2 layout.
 LEADS = [
-    ("EUROPE", "UKRAINE - OVERNIGHT BARRAGE",
+    (1, "EUROPE", "KYIV, UKRAINE", "WAR",
      "Russia fires 110+ missiles and 400+ drones; three Kyiv bridges hit",
-     "27 of the missiles were ballistic, in waves 20-30 minutes apart. "
-     "At least eight were killed - six in Kyiv, two in Lviv - and power, "
-     "water and heating were cut in five Kyiv districts. A Kh-101 also "
-     "came down in Poland.",
+     "27 were ballistic, in waves 20-30 minutes apart. Eight killed - "
+     "six in Kyiv, two in Lviv - and power, water and heating cut in "
+     "five districts.",
      "kyiv"),
-    ("ASIA-PACIFIC", "INDIA - CYCLONE AKVAN",
+    (2, "ASIA-PACIFIC", "ODISHA, INDIA", "CYCLONE",
      "Cyclone Akvan makes landfall near Gopalpur; 300,000+ evacuated",
-     "The storm crossed the Odisha coast with winds of 70-80 km/h, "
-     "gusting to 90, after weakening from a severe cyclonic storm. "
+     "Crossed the Odisha coast with winds of 70-80 km/h, gusting to 90. "
      "209 mm of rain fell at Patrapur. No deaths were reported.",
      "akvan"),
-    ("ASIA-PACIFIC", "MARKETS - AI SELL-OFF",
+    (3, "ASIA-PACIFIC", "TOKYO - SEOUL - TAIPEI", "MARKETS",
      "AI sell-off sinks Asia: Nikkei -4.77%, KOSPI -5.21%, Taiex -6.63%",
      "Friday closes: Nikkei 56,606; KOSPI 4,869.96, below 5,000; Taiex "
-     "35,877.63, capping its worst week since 1991. SoftBank fell "
-     "14.6%, Samsung 7.0%. MSCI Asia-Pacific had its worst week since "
-     "March 2020.",
+     "35,877.63, worst week since 1991. SoftBank fell 14.6%, Samsung "
+     "7.0%.",
      "markets"),
 ]
 
+# (num, region, place, field, banner, headline, deck, scene) -- mediums
+# are numbered 4 to 13; decks fit two lines in the v2 grid.
 MEDIUMS = [
-    ("WORLD", "COP31 - CLIMATE",
+    (4, "WORLD", "ANTALYA", "CLIMATE", "COP31: NO DEAL",
      "COP31 ends its final day with no deal",
-     "The latest draft drops every fossil-fuel mention and the $120bn "
-     "goal. '35 by 35' survives; talks run on.",
-     "globe"),
-    ("EUROPE", "UK-EU - RESET DEAL",
+     "Draft drops fossil-fuel mentions and the $120bn goal; '35 by 35' "
+     "survives.",
+     "cop31"),
+    (5, "EUROPE", "BRUSSELS", "DIPLOMACY", "UK-EU DEAL",
      "UK and EU seal reset deal",
-     "100,000 youth visas a year each way; food checks end; carbon "
-     "markets linked. Worth up to 17bn pounds a year.",
-     "flags"),
-    ("ASIA-PACIFIC", "JAPAN - INFLATION",
+     "100,000 youth visas a year; food checks end; carbon markets "
+     "linked.",
+     "ukeu"),
+    (6, "ASIA-PACIFIC", "TOKYO", "ECONOMY", "JAPAN +2.3%",
      "Japan inflation 2.3%; rate rise eyed",
-     "October CPI: 2.3% headline, 2.2% core. Most economists expect "
-     "the Bank of Japan to lift rates to 1.50% in December.",
-     "yen"),
-    ("AFRICA", "KENYA - FIRST OIL",
+     "CPI 2.3% headline, 2.2% core; BoJ seen hiking to 1.50% in "
+     "December.",
+     "japan"),
+    (7, "AFRICA", "TURKANA, KENYA", "ENERGY", "KENYA: OIL",
      "Kenya drills its first oil well",
-     "Spudding starts at Amosing 1 in Turkana. First oil due 1 Dec: "
-     "20,000 barrels a day, rising to 50,000 by 2032.",
-     "derrick"),
-    ("MIDDLE EAST", "IRAQ - MILITIA BASE",
+     "Amosing 1 spudded in Turkana; first oil 1 Dec at 20,000 barrels "
+     "a day.",
+     "kenya"),
+    (8, "MIDDLE EAST", "CENTRAL IRAQ", "SECURITY", "IRAQ: ARMY IN",
      "Iraqi troops enter militia stronghold",
-     "Forces deploy in Jurf al-Sakhar, a Kataib Hezbollah base "
-     "south-west of Baghdad, after a probe into oil smuggling.",
-     "shield"),
-    ("AFRICA", "MALAWI - FUEL CRISIS",
+     "Troops enter Jurf al-Sakhar, a Kataib Hezbollah base near "
+     "Baghdad.",
+     "iraq"),
+    (9, "AFRICA", "BLANTYRE, MALAWI", "FUEL", "FUEL CRISIS",
      "Malawi rations fuel to 20 litres a day",
-     "Motorists queue for hours, sometimes overnight, in Blantyre. "
-     "Black-market petrol sells at about $17 for two litres.",
-     "pump"),
-    ("EUROPE", "ITALY - STRIKE",
+     "Queues for hours in Blantyre; black-market petrol $17 for two "
+     "litres.",
+     "malawi"),
+    (10, "EUROPE", "ROME", "LABOUR", "ITALY: STRIKE",
      "Italy hit by 24-hour general strike",
-     "Tens of thousands march in 100+ cities against the 2027 budget. "
-     "Rail freight halts from Friday night to Saturday.",
-     "megaphone"),
-    ("ASIA-PACIFIC", "SOUTH KOREA - COURTS",
+     "Tens of thousands march in 100+ cities against the 2027 budget.",
+     "italy"),
+    (11, "ASIA-PACIFIC", "SEOUL", "COURTS", "SEOUL: IMPEACH",
      "Seoul moves to impeach top judge",
-     "The ruling party acts against Chief Justice Cho Hee-dae after the "
-     "Supreme Court softened ex-PM Han's martial-law case.",
-     "scales"),
+     "Ruling party moves against Chief Justice Cho Hee-dae in the Han "
+     "case.",
+     "seoul"),
+    (12, "OCEANIA", "WELLINGTON", "CRICKET", "PHILLIPS: 118",
+     "Phillips 118 powers New Zealand",
+     "Phillips 118, Nicholls 175 not out; New Zealand 368 in "
+     "Wellington.",
+     "cricket"),
+    (13, "AMERICAS", "LAS VEGAS", "FORMULA 1", "RUSSELL: P1",
+     "Russell fastest in wet Las Vegas",
+     "Russell fastest in a wet FP2, 1:47.272; FP1 washed out.",
+     "vegas"),
 ]
 
-# (region, one-line brief) -- numbered 12 to 33 in the page.
+# (region, one-line brief) -- numbered 14 to 33 in the page.
 ALSO = [
     ("EUROPE", "POLAND: Kh-101 missile and a drone come down near the border; no injuries; Warsaw calls it a provocation."),
     ("EUROPE", "LVIV: Strike on Sknyliv station kills two and wrecks the ticket hall; 10 in hospital."),
@@ -1079,8 +1256,6 @@ ALSO = [
     ("AMERICAS", "EL SALVADOR: Bukele files for a third term at Thursday night's deadline; vote 28 Feb 2027."),
     ("ASIA-PACIFIC", "CHINA-AUSTRALIA: Xi hails a 'comprehensive turnaround' as he meets Albanese in Shenzhen."),
     ("ASIA-PACIFIC", "CHINA: Lending rates held for an 18th month - 1-year 3.00%, 5-year 3.50%."),
-    ("ASIA-PACIFIC", "CRICKET: Phillips 118 and Nicholls 175 not out put New Zealand on 368 in Wellington."),
-    ("AMERICAS", "LAS VEGAS GP: Russell fastest in a wet FP2, 1:47.272; FP1 washed out."),
     ("EUROPE", "ATP FINALS: Alcaraz beats Cobolli 6-4, 6-1 (3-0); Medvedev v Tiafoe tonight for the last semi."),
     ("ASIA-PACIFIC", "ROHINGYA: Bangladesh FM visits Cox's Bazar camps; Myanmar dismisses the ICJ ruling as 'unfair'."),
     ("ASIA-PACIFIC", "CHIPS: SoftBank -14.6%, Samsung -7.0%, SK Hynix -5.9%; Seoul triggers sidecar curbs twice."),
@@ -1099,10 +1274,10 @@ ALSO = [
 
 NUMBERS = [
     ("110+", "MISSILES FIRED AT UKRAINE"),
-    ("400+", "DRONES IN THE BARRAGE"),
     ("300,000+", "EVACUATED IN ODISHA"),
     ("-6.63%", "TAIEX CLOSE, FRIDAY"),
-    ("100,000", "YOUTH VISAS A YEAR, UK-EU"),
+    ("100,000", "YOUTH VISAS A YEAR"),
+    ("20,000", "BARRELS A DAY, KENYA"),
     ("2.3%", "JAPAN INFLATION, OCT"),
 ]
 
@@ -1110,8 +1285,8 @@ NUMBERS = [
 # fan out with leader lines: the true positions sit within a few pixels.
 PINS = [
     (1, 30.5, 50.4, 8, 10),
-    (12, 22.0, 50.6, -34, -4),
-    (13, 24.0, 49.8, 20, -18),
+    (14, 22.0, 50.6, -34, -4),
+    (15, 24.0, 49.8, 20, -18),
     (5, -0.1, 51.5, -26, 0),
     (10, 12.5, 41.9, -4, 22),
     (31, 13.4, 52.5, -2, -18),
@@ -1121,6 +1296,8 @@ PINS = [
     (11, 127.0, 37.5, 0, 0),
     (6, 139.7, 35.7, 0, 0),
     (7, 36.0, 3.5, 0, 0),
+    (12, 174.8, -41.3, 0, 0),
+    (13, -115.1, 36.2, 0, 0),
 ]
 
 REGION_COLOR = {
@@ -1129,6 +1306,7 @@ REGION_COLOR = {
     "AMERICAS": DARKRED,
     "MIDDLE EAST": (128, 90, 0),
     "AFRICA": (34, 110, 60),
+    "OCEANIA": PURPLE,
     "WORLD": GREY,
 }
 
@@ -1155,101 +1333,102 @@ def build():
     serif_b = Font(os.path.join(base, "LiberationSerif-Bold.ttf"))
     serif_i = Font(os.path.join(base, "LiberationSerif-Italic.ttf"))
     cv = Canvas(W, H, CREAM)
-    cv.fill_rect(0, 0, W, 86, NAVY)
+    cv.fill_rect(0, 0, W, 80, NAVY)
 
     # masthead, dark band: gold label, near-white date, gold rule
-    draw_spaced(cv, serif_b, W // 2, 28, "THE WORLD IN ONE DAY", 15, GOLD, 4)
-    draw_centered(cv, serif_b, W // 2, 72, "Friday 20 November 2026", 44,
+    draw_spaced(cv, serif_b, W // 2, 24, "THE WORLD IN ONE DAY", 15, GOLD, 4)
+    draw_centered(cv, serif_b, W // 2, 66, "Friday 20 November 2026", 44,
                   (251, 247, 234))
-    cv.hline(24, 1000, 80, GOLD, 2)
+    cv.hline(24, 1000, 74, GOLD, 2)
 
     # story / region count strip, computed from the data
+    # (leads and mediums carry the region at index 1, briefs at 0)
     counts = {}
     total = 0
-    for (region, *_rest) in LEADS + MEDIUMS + ALSO:
+    for item in LEADS + MEDIUMS:
+        counts[item[1]] = counts.get(item[1], 0) + 1
+        total += 1
+    for (region, _text) in ALSO:
         counts[region] = counts.get(region, 0) + 1
         total += 1
     order = ["EUROPE", "ASIA-PACIFIC", "AMERICAS", "MIDDLE EAST", "AFRICA",
-             "WORLD"]
+             "OCEANIA", "WORLD"]
     strip = "%d STORIES" % total
     for r in order:
         strip += "  |  %s %d" % (r, counts.get(r, 0))
-    draw_centered(cv, serif_b, W // 2, 102, strip, 12, NAVY)
+    draw_centered(cv, serif_b, W // 2, 94, strip, 12, NAVY)
 
     # numbers strip
     for i, (num, label) in enumerate(NUMBERS):
         x = 24 + i * 163
-        cv.fill_rect(x, 110, 160, 52, LIGHT)
-        cv.rect_outline(x, 110, 160, 52, MIDGREY, 1)
-        draw_centered(cv, serif_b, x + 80, 138, num, 23, NAVY)
-        draw_centered(cv, serif_b, x + 80, 155, label, 10, INK)
+        cv.fill_rect(x, 102, 160, 46, LIGHT)
+        cv.rect_outline(x, 102, 160, 46, MIDGREY, 1)
+        draw_centered(cv, serif_b, x + 80, 128, num, 21, NAVY)
+        draw_centered(cv, serif_b, x + 80, 144, label, 9, INK)
 
-    # three leads
+    # three leads: art, then tag, headline and deck right under it
+    # (no dead gap between art and text -- see the 19 Nov lead-gap fix)
     font = serif_b
-    font.draw(cv, 24, 178, "THE DAY'S THREE BIG STORIES", 12, NAVY)
-    cv.hline(24, 1000, 184, MIDGREY, 1)
+    font.draw(cv, 24, 160, "THE DAY'S THREE BIG STORIES", 12, NAVY)
+    cv.hline(24, 1000, 166, MIDGREY, 1)
     cols = [24, 352, 680]
-    for (region, tag, head, deck, art), x in zip(LEADS, cols):
-        if art == "markets":
-            ART[art](cv, x, 190, 320, 124, serif_b)
-        else:
-            ART[art](cv, x, 190, 320, 124)
-        cv.rect_outline(x, 190, 320, 124, NAVY, 1)
-        serif_b.draw(cv, x, 332, tag, 11, RED)
+    for (num, region, place, field, head, deck, art), x in zip(LEADS, cols):
+        ART[art](cv, x, 172, 320, 118, serif_b)
+        cv.rect_outline(x, 172, 320, 118, NAVY, 1)
+        tag = "%d - %s - %s" % (num, place, field)
+        serif_b.draw(cv, x, 302, tag, 11, RED)
         lines = wrap_text(serif_b, head, 19, 320)
         for j, ln in enumerate(lines):
-            serif_b.draw(cv, x, 340 + j * 22 + 19, ln, 19, INK)
-        dy = 340 + len(lines) * 22 + 6
-        draw_wrapped(cv, serif, x, dy, deck, 12, INK, 320, 14)
+            serif_b.draw(cv, x, 301 + j * 20 + 19, ln, 19, INK)
+        dy = 301 + len(lines) * 20 + 8
+        draw_wrapped(cv, serif, x, dy, deck, 12, INK, 320, 13)
 
-    # medium grid
-    cv.hline(24, 1000, 472, INK, 1)
-    serif_b.draw(cv, 24, 490, "MORE OF THE DAY", 12, NAVY)
-    for idx, (region, tag, head, deck, icon) in enumerate(MEDIUMS):
-        col = idx % 4
-        row = idx // 4
-        x = 24 + col * 246
-        y = 498 + row * 88
-        cv.fill_rect(x, y, 64, 64, LIGHT)
-        cv.rect_outline(x, y, 64, 64, MIDGREY, 1)
-        if icon == "yen":
-            ICONS[icon](cv, x, y, serif_b)
-        else:
-            ICONS[icon](cv, x, y)
-        tx = x + 72
-        serif_b.draw(cv, tx, y + 12, tag, 10, REGION_COLOR[region])
-        draw_wrapped(cv, serif_b, tx, y + 17, head, 12, INK, 166, 15)
-        draw_wrapped(cv, serif, tx, y + 50, deck, 10, INK, 166, 12)
+    # medium grid, 5 columns x 2 rows, full HUD scenes
+    cv.hline(24, 1000, 396, INK, 1)
+    serif_b.draw(cv, 24, 412, "MORE OF THE DAY", 12, NAVY)
+    for (num, region, place, field, banner, head, deck, scene) in MEDIUMS:
+        idx = num - 4
+        col = idx % 5
+        row = idx // 5
+        x = 24 + col * 196
+        y = 420 + row * 136
+        SCENES[scene](cv, x, y, 188, 58)
+        scene_banner(cv, serif_b, x, y, 188, banner)
+        cv.rect_outline(x, y, 188, 58, NAVY, 1)
+        tag = "%d - %s - %s" % (num, place, field)
+        serif_b.draw(cv, x, y + 72, tag, 10, REGION_COLOR[region])
+        draw_wrapped(cv, serif_b, x, y + 76, head, 12, INK, 188, 14)
+        draw_wrapped(cv, serif, x, y + 108, deck, 10, INK, 188, 11)
 
-    # world map
-    cv.hline(24, 1000, 682, INK, 1)
-    serif_b.draw(cv, 24, 700, "WHERE IT HAPPENED", 12, NAVY)
-    serif.draw(cv, 1000 - serif.text_width("12 OF TODAY'S 33 STORIES PINNED", 11),
-               700, "12 OF TODAY'S 33 STORIES PINNED", 11, GREY)
-    draw_map(cv, 24, 706, 976, 124, PINS, serif_b)
+    # world map, dot-matrix HUD
+    cv.hline(24, 1000, 696, INK, 1)
+    serif_b.draw(cv, 24, 712, "WHERE IT HAPPENED", 12, NAVY)
+    serif.draw(cv, 1000 - serif.text_width("14 OF TODAY'S 33 STORIES PINNED", 11),
+               712, "14 OF TODAY'S 33 STORIES PINNED", 11, GREY)
+    draw_map(cv, 24, 718, 976, 116, PINS, serif_b)
 
     # also list
-    cv.hline(24, 1000, 838, INK, 1)
-    serif_b.draw(cv, 24, 856, "ALSO ON FRIDAY 20 NOVEMBER", 12, NAVY)
+    cv.hline(24, 1000, 842, INK, 1)
+    serif_b.draw(cv, 24, 858, "ALSO ON FRIDAY 20 NOVEMBER", 12, NAVY)
     for i, (region, text) in enumerate(ALSO):
-        col = i // 11
-        row = i % 11
+        col = i // 10
+        row = i % 10
         x = 24 + col * 498
-        y = 862 + row * 10
-        item = "%d. %s" % (12 + i, text)
+        y = 864 + row * 10
+        item = "%d. %s" % (14 + i, text)
         w = serif.text_width(item, 9)
         if w > 474:
-            print("also item %d too wide: %.0f" % (12 + i, w),
+            print("also item %d too wide: %.0f" % (14 + i, w),
                   file=sys.stderr)
         serif.draw(cv, x, y + 9, item, 9, INK)
 
     # date check box
-    cv.fill_rect(24, 974, 976, 28, LIGHT)
-    cv.rect_outline(24, 974, 976, 28, NAVY, 1)
-    draw_wrapped(cv, serif, 32, 976, DATE_CHECK, 10, INK, 960, 12)
+    cv.fill_rect(24, 970, 976, 28, LIGHT)
+    cv.rect_outline(24, 970, 976, 28, NAVY, 1)
+    draw_wrapped(cv, serif, 32, 970, DATE_CHECK, 10, INK, 960, 12)
 
     # footer, one line
-    draw_centered(cv, serif, W // 2, 1016, " ".join(FOOTER), 8, GREY)
+    draw_centered(cv, serif, W // 2, 1010, " ".join(FOOTER), 8, GREY)
     return cv
 
 
