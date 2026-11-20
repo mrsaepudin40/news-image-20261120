@@ -45,6 +45,7 @@ NAVY3 = (24, 58, 104)
 GOLD = (201, 162, 39)
 RED = (178, 34, 34)
 DARKRED = (140, 22, 22)
+BLUE = (42, 109, 176)
 TEAL = (18, 105, 120)
 SKY = (205, 222, 232)
 SAND = (226, 208, 168)
@@ -1413,20 +1414,30 @@ def build():
                712, "14 OF TODAY'S 33 STORIES PINNED", 11, GREY)
     draw_map(cv, 24, 718, 976, 116, PINS, serif_b)
 
-    # also list
+    # also list: numbers cycle red/blue/teal/purple; only the
+    # country/subject lead-in is bold navy, the rest is regular ink
     cv.hline(24, 1000, 842, INK, 1)
     serif_b.draw(cv, 24, 858, "ALSO ON FRIDAY 20 NOVEMBER", 12, NAVY)
+    NUM_COLOURS = [RED, BLUE, TEAL, PURPLE]
     for i, (region, text) in enumerate(ALSO):
         col = i // 10
         row = i % 10
         x = 24 + col * 498
         y = 864 + row * 10
-        item = "%d. %s" % (14 + i, text)
-        w = serif.text_width(item, 9)
+        num = "%d." % (14 + i)
+        lead, rest = text.split(": ", 1)
+        lead += ":"
+        w = (serif_b.text_width(num, 9) + 3
+             + serif_b.text_width(lead, 9) + 3
+             + serif.text_width(rest, 9))
         if w > 474:
             print("also item %d too wide: %.0f" % (14 + i, w),
                   file=sys.stderr)
-        serif.draw(cv, x, y + 9, item, 9, INK)
+        serif_b.draw(cv, x, y + 9, num, 9, NUM_COLOURS[i % 4])
+        lx = x + serif_b.text_width(num, 9) + 3
+        serif_b.draw(cv, lx, y + 9, lead, 9, NAVY)
+        rx = lx + serif_b.text_width(lead, 9) + 3
+        serif.draw(cv, rx, y + 9, rest, 9, INK)
 
     # date check box
     cv.fill_rect(24, 970, 976, 28, LIGHT)
