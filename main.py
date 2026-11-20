@@ -655,6 +655,41 @@ def draw_wrapped(cv, font, x, y, s, size, color, maxw, leading=None):
     return y + len(lines) * leading
 
 
+def draw_wrapped_mixed(cv, x, y, segments, size, maxw, leading=None):
+    """Like draw_wrapped, but segments is [(text, font, colour), ...];
+    wraps word by word, keeping each word's own font and colour."""
+    if leading is None:
+        leading = int(size * 1.28)
+    words = []
+    for (text, font, colour) in segments:
+        for wd in text.split(" "):
+            if wd:
+                words.append((wd, font, colour))
+    lines = []
+    cur = []
+    cur_w = 0
+    for (wd, font, colour) in words:
+        ww = font.text_width(wd, size)
+        sp = font.text_width(" ", size) if cur else 0
+        if cur and cur_w + sp + ww > maxw:
+            lines.append(cur)
+            cur = [(wd, font, colour)]
+            cur_w = ww
+        else:
+            cur.append((wd, font, colour))
+            cur_w += sp + ww
+    if cur:
+        lines.append(cur)
+    for i, line in enumerate(lines):
+        cx = x
+        for j, (wd, font, colour) in enumerate(line):
+            font.draw(cv, cx, y + i * leading + size, wd, size, colour)
+            cx += font.text_width(wd, size)
+            if j + 1 < len(line):
+                cx += font.text_width(" ", size)
+    return y + len(lines) * leading
+
+
 def draw_centered(cv, font, cx, y_baseline, s, size, color):
     w = font.text_width(s, size)
     font.draw(cv, cx - w / 2.0, y_baseline, s, size, color)
@@ -1327,14 +1362,21 @@ REGION_COLOR = {
     "WORLD": GREY,
 }
 
-DATE_CHECK = (
-    "DATE CHECK - LEFT OUT AS 19 NOVEMBER NEWS: Shenzhen summit; "
-    "Anthropic IPO; ICJ Myanmar verdict; GTA VI launch; Fiona the hippo; "
-    "U17 Australia 2-0 Argentina; Lula-Raoni land deal; South Africa Test "
-    "win; Senegal budget decree. NOT YET: BepiColombo Mercury arrival "
-    "(21 Nov). AFTER PRESS TIME: COP31 final text; US market close; "
-    "Medvedev v Tiafoe."
-)
+# Date-check box content as (text, bold, colour): the title, the two
+# section markers and the four biggest left-out stories are bold
+# (labels red, stories navy); everything else is regular ink.
+DATE_CHECK = [
+    ("DATE CHECK -", True, RED),
+    ("LEFT OUT AS 19 NOVEMBER NEWS:", True, NAVY),
+    ("Shenzhen summit; Anthropic IPO; ICJ Myanmar verdict; GTA VI launch;",
+     True, NAVY),
+    ("Fiona the hippo; U17 Australia 2-0 Argentina; Lula-Raoni land deal; "
+     "South Africa Test win; Senegal budget decree.", False, INK),
+    ("NOT YET:", True, RED),
+    ("BepiColombo Mercury arrival (21 Nov).", False, INK),
+    ("AFTER PRESS TIME:", True, RED),
+    ("COP31 final text; US market close; Medvedev v Tiafoe.", False, INK),
+]
 
 FOOTER = [
     "Sources: Reuters, CNN, AP, AFP, BBC, IMD, The Hindu, Morningstar, Aju Press, Cricbuzz, Formula1.com, ATP, UKMTO, UN News, Carbon Brief.",
@@ -1459,10 +1501,12 @@ def build():
         rx = lx + serif_b.text_width(lead, 9) + 3
         serif.draw(cv, rx, y + 9, rest, 9, INK)
 
-    # date check box
+    # date check box: red 2px border; title, section markers and the
+    # four biggest left-out stories bold (labels red, stories navy)
     cv.fill_rect(24, 970, 976, 28, LIGHT)
-    cv.rect_outline(24, 970, 976, 28, NAVY, 1)
-    draw_wrapped(cv, serif, 32, 970, DATE_CHECK, 10, INK, 960, 12)
+    cv.rect_outline(24, 970, 976, 28, RED, 2)
+    dc = [(t, serif_b if b else serif, c) for (t, b, c) in DATE_CHECK]
+    draw_wrapped_mixed(cv, 32, 970, dc, 10, 960, 12)
 
     # footer, one line
     draw_centered(cv, serif, W // 2, 1010, " ".join(FOOTER), 8, GREY)
