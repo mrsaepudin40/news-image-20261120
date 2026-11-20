@@ -62,6 +62,14 @@ PURPLE = (96, 64, 144)
 GOLDDOT = (201, 162, 39)
 PANEL = (10, 26, 54)
 
+# One colour per story number, shared by the map pins and the also-list
+# numbers: a number always wears the same colour as its pin on the map.
+NUM_COLOURS = [RED, BLUE, TEAL, PURPLE]
+
+
+def num_colour(n):
+    return NUM_COLOURS[n % 4]
+
 # ---------------------------------------------------------------- canvas
 class Canvas:
     def __init__(self, w, h, bg):
@@ -847,8 +855,10 @@ def draw_map(cv, x, y, w, h, pins, serif_b):
         if dx or dy:
             cv.line(int(px), int(py), cx, cy, GOLD, 1)
             cv.fill_circle(int(px), int(py), 2, GOLD)
-        cv.fill_circle(cx, cy, 10, (60, 12, 12))  # glow ring
-        cv.fill_circle(cx, cy, 7, RED)
+        col = num_colour(num)
+        glow = tuple(c // 4 for c in col)
+        cv.fill_circle(cx, cy, 10, glow)  # glow ring, dark tint of the pin
+        cv.fill_circle(cx, cy, 7, col)
         cv.circle_outline(cx, cy, 7, (251, 247, 234), 1)
         label = str(num)
         tw = serif_b.text_width(label, 9)
@@ -1425,11 +1435,10 @@ def build():
                712, "14 OF TODAY'S 33 STORIES PINNED", 11, GREY)
     draw_map(cv, 24, 718, 976, 116, PINS, serif_b)
 
-    # also list: numbers cycle red/blue/teal/purple; only the
-    # country/subject lead-in is bold navy, the rest is regular ink
+    # also list: each number wears its pin's colour (num_colour); only
+    # the country/subject lead-in is bold navy, the rest is regular ink
     cv.hline(24, 1000, 842, INK, 1)
     serif_b.draw(cv, 24, 858, "ALSO ON FRIDAY 20 NOVEMBER", 12, NAVY)
-    NUM_COLOURS = [RED, BLUE, TEAL, PURPLE]
     for i, (region, text) in enumerate(ALSO):
         col = i // 10
         row = i % 10
@@ -1444,7 +1453,7 @@ def build():
         if w > 474:
             print("also item %d too wide: %.0f" % (14 + i, w),
                   file=sys.stderr)
-        serif_b.draw(cv, x, y + 9, num, 9, NUM_COLOURS[i % 4])
+        serif_b.draw(cv, x, y + 9, num, 9, num_colour(14 + i))
         lx = x + serif_b.text_width(num, 9) + 3
         serif_b.draw(cv, lx, y + 9, lead, 9, NAVY)
         rx = lx + serif_b.text_width(lead, 9) + 3
