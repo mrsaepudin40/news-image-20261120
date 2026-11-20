@@ -839,6 +839,10 @@ def draw_map(cv, x, y, w, h, pins, serif_b):
         py = y + (78 - lat) / 134.0 * h
         cx = int(px + dx)
         cy = int(py + dy)
+        # hard clamp: the whole pin disc (glow r=10) must stay inside
+        # the panel, so no fan offset can ever push a pin over the edge
+        cx = max(x + 11, min(x + w - 12, cx))
+        cy = max(y + 11, min(y + h - 12, cy))
         if dx or dy:
             cv.line(int(px), int(py), cx, cy, GOLD, 1)
             cv.fill_circle(int(px), int(py), 2, GOLD)
@@ -1283,20 +1287,22 @@ NUMBERS = [
 
 # (story number, lon, lat, dx, dy) -- pins on the map. Europe's pins
 # fan out with leader lines: the true positions sit within a few pixels.
+# Fan offsets are tuned so every disc (glow r=10) stays >=4 px inside
+# the panel -- 15 and 31 used to poke 4-6 px over the top edge.
 PINS = [
     (1, 30.5, 50.4, 8, 10),
-    (14, 22.0, 50.6, -34, -4),
-    (15, 24.0, 49.8, 20, -18),
+    (14, 22.0, 50.6, -41, -6),
+    (15, 24.0, 49.8, 20, -8),
     (5, -0.1, 51.5, -26, 0),
     (10, 12.5, 41.9, -4, 22),
-    (31, 13.4, 52.5, -2, -18),
+    (31, 13.4, 52.5, -2, -8),
     (20, 7.7, 45.1, -16, 16),
-    (4, 30.7, 36.9, 24, 10),
+    (4, 30.7, 36.9, 28, 14),
     (2, 84.9, 19.3, 0, 0),
     (11, 127.0, 37.5, 0, 0),
     (6, 139.7, 35.7, 0, 0),
     (7, 36.0, 3.5, 0, 0),
-    (12, 174.8, -41.3, 0, 0),
+    (12, 174.8, -41.3, 0, -8),
     (13, -115.1, 36.2, 0, 0),
 ]
 
