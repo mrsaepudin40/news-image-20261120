@@ -61,16 +61,35 @@ CYAN = (120, 200, 220)
 NEON = (255, 190, 60)
 ORANGE = (255, 140, 0)
 PURPLE = (96, 64, 144)
+GREEN = (34, 110, 60)
 GOLDDOT = (201, 162, 39)
 PANEL = (10, 26, 54)
 
-# One colour per story number, shared by the map pins and the also-list
-# numbers: a number always wears the same colour as its pin on the map.
+# One colour per CONTINENT, shared by the map pins and the also-list
+# numbers: a number always wears its story's region colour, so all of
+# Europe (14-18) is blue, Asia-Pacific (19-23) teal, the Americas
+# (24-29) red, the Middle East (30) dark gold, Africa (31) green,
+# Oceania (12) purple and World (32-33) grey. STORY_REGION is filled
+# in after the story lists below; num_colour is only called at draw
+# time, once it exists. The old n % 4 cycle is kept as a fallback.
+REGION_NUM_COLOUR = {
+    "EUROPE": BLUE,
+    "ASIA-PACIFIC": TEAL,
+    "AMERICAS": RED,
+    "MIDDLE EAST": (128, 90, 0),
+    "AFRICA": GREEN,
+    "OCEANIA": PURPLE,
+    "WORLD": GREY,
+}
+STORY_REGION = {}
 NUM_COLOURS = [RED, BLUE, TEAL, PURPLE]
 
 
 def num_colour(n):
-    return NUM_COLOURS[n % 4]
+    region = STORY_REGION.get(n)
+    if region is None:
+        return NUM_COLOURS[n % 4]
+    return REGION_NUM_COLOUR[region]
 
 # ---------------------------------------------------------------- canvas
 class Canvas:
@@ -1330,6 +1349,12 @@ ALSO = [
     ("WORLD", "WORLD: UN marks World Children's Day across member states."),
 ]
 
+# story number -> region, for the per-continent number/pin colours.
+for _item in LEADS + MEDIUMS:
+    STORY_REGION[_item[0]] = _item[1]
+for _i, (_region, _text) in enumerate(ALSO):
+    STORY_REGION[14 + _i] = _region
+
 NUMBERS = [
     ("110+", "MISSILES FIRED AT UKRAINE"),
     ("300,000+", "EVACUATED IN ODISHA"),
@@ -1488,7 +1513,8 @@ def build():
                712, "14 OF TODAY'S 33 STORIES PINNED", 11, GREY)
     draw_map(cv, 24, 718, 976, 116, PINS, serif_b)
 
-    # also list: each number wears its pin's colour (num_colour); only
+    # also list: each number wears its continent's colour (num_colour,
+    # the same colour as its pin on the map); only
     # the country/subject lead-in is bold navy, the rest is regular ink
     cv.hline(24, 1000, 842, INK, 1)
     serif_b.draw(cv, 24, 858, "ALSO ON FRIDAY 20 NOVEMBER", 12, NAVY)
