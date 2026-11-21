@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""The World in One Day -- Friday 20 November 2026 (v3).
+"""The World in One Day -- Friday 20 November 2026 (v4).
 
 A pure-stdlib program (no Pillow, no network) that draws one 1024x1024
 newspaper front page summing up the world news of Friday 20 November
-2026: 33 stories (3 illustrated leads, 10 pictured medium stories, 20
+2026: 35 stories (3 illustrated leads, 10 pictured medium stories, 22
 more in brief), a world map with 14 numbered pins, a numbers strip, a
 DATE CHECK box and a source footer. Output is deterministic: two runs
 write identical bytes.
@@ -23,7 +23,16 @@ late-evening results v2 flagged as after press time: the US market
 close (S&P -3.70%, Nasdaq -5.28%), Medvedev beating Tiafoe 6-3, 6-4
 for the last ATP semi-final spot, and COP31 running into overtime
 with no deal on Friday. Contested claims are attributed in the text,
-never stated as fact.
+never stated as fact. v4 (press time 21:00 UTC) answers the top-10
+comparison of 21 Nov: every drawn story now carries a source chip
+(Reuters, IMD, UN News and the rest, in the art's corner, like the
+top entries' CONFIRMED / OFFICIAL badges), the also-list briefs
+carry their sources in parentheses, two verified late stories are
+added -- Nvidia's SEC accounting probe (Reuters, shares -14.01% to
+$125.53) and the daraxonrasib pancreatic-cancer trial (60.7% response
+in 61 patients, presented in Barcelona on 20 Nov) -- so the total is
+35, and the map is lightened to a cream panel with navy continents
+so the land is easier to read at a glance.
 
 All pictures are flat vector drawings made in code; the only files
 the program reads are the three Liberation Serif fonts beside it.
@@ -873,17 +882,38 @@ def scene_banner(cv, serif_b, x, y, w, text, bg=RED):
     serif_b.draw(cv, x + 6, y + 10, text, 9, (251, 247, 234))
 
 
+def source_chip(cv, serif_b, x, y, w, h, src, top=False):
+    """Small dark chip with the story's source, in a corner of the art.
+
+    The top entries carry a source or CONFIRMED/OFFICIAL badge on every
+    drawn story; the chip does the same here without taking a line of
+    headline or deck space. Leads take the top corner (their table /
+    river runs along the bottom); mediums take the bottom corner
+    (their banner strip runs along the top).
+    """
+    tw = serif_b.text_width(src, 8)
+    bw = int(tw + 10)
+    bx = x + w - 4 - bw
+    by = y + 4 if top else y + h - 16
+    cv.fill_rect(bx, by, bw, 12, (10, 26, 54))
+    cv.rect_outline(bx, by, bw, 12, GOLD, 1)
+    serif_b.draw(cv, bx + 5, by + 9, src, 8, (251, 247, 234))
+
+
 def draw_map(cv, x, y, w, h, pins, serif_b):
-    cv.fill_rect(x, y, w, h, NAVY2)
+    # v4: light panel (cream, navy dot-matrix continents) -- the dark
+    # navy map hid the land at a glance; the pins keep their continent
+    # colours, now with a dark outline so they read on the cream.
+    cv.fill_rect(x, y, w, h, (251, 247, 234))
     # faint graticule
-    grid = (28, 58, 98)
+    grid = (200, 195, 180)
     for lon in range(-150, 181, 30):
         px = x + (lon + 168) / 360.0 * w
         cv.vline(int(px), y, y + h - 1, grid)
     for lat in range(-60, 79, 30):
         py = y + (78 - lat) / 134.0 * h
         cv.hline(x, x + w - 1, int(py), grid)
-    # continents as a gold dot-matrix (HUD style), not solid blobs
+    # continents as a navy dot-matrix (HUD style), not solid blobs
     polys = []
     for land in LANDS:
         pts = [(x + (lon + 168) / 360.0 * w, y + (78 - lat) / 134.0 * h)
@@ -897,7 +927,7 @@ def draw_map(cv, x, y, w, h, pins, serif_b):
             for (pts, x0, x1, y0, y1) in polys:
                 if x0 <= gx <= x1 and y0 <= gy <= y1 \
                         and _inside(gx, gy, pts):
-                    cv.fill_circle(gx, gy, 1, GOLDDOT)
+                    cv.fill_circle(gx, gy, 1, NAVY3)
                     break
     for (num, lon, lat, dx, dy) in pins:
         px = x + (lon + 168) / 360.0 * w
@@ -915,7 +945,7 @@ def draw_map(cv, x, y, w, h, pins, serif_b):
         glow = tuple(c // 4 for c in col)
         cv.fill_circle(cx, cy, 10, glow)  # glow ring, dark tint of the pin
         cv.fill_circle(cx, cy, 7, col)
-        cv.circle_outline(cx, cy, 7, (251, 247, 234), 1)
+        cv.circle_outline(cx, cy, 7, INK, 1)
         label = str(num)
         tw = serif_b.text_width(label, 9)
         serif_b.draw(cv, cx - tw / 2.0, cy + 3, label, 9,
@@ -1248,105 +1278,112 @@ def art_markets(cv, x, y, w, h, serif_b):
     hud_corners(cv, x, y, w, h, GOLD, 10, 2)
 
 # ---------------------------------------------------------------- stories
-# (num, region, place, field, headline, deck, art) -- every item dated
-# 20 Nov 2026. Lead decks are trimmed to three lines at the v2 layout.
+# (num, region, place, field, headline, deck, art, source) -- every item
+# dated 20 Nov 2026. Lead decks are trimmed to three lines at the v2
+# layout. The source is drawn as a chip in the art's corner (v4).
 LEADS = [
     (1, "EUROPE", "KYIV, UKRAINE", "WAR",
      "Russia fires 110+ missiles and 400+ drones; three Kyiv bridges hit",
      "27 were ballistic, in waves 20-30 minutes apart. Eight killed - "
      "six in Kyiv, two in Lviv - and power, water and heating cut in "
      "five districts.",
-     "kyiv"),
+     "kyiv", "REUTERS"),
     (2, "ASIA-PACIFIC", "ODISHA, INDIA", "CYCLONE",
      "Cyclone Akvan makes landfall near Gopalpur; 300,000+ evacuated",
      "Crossed the Odisha coast with winds of 70-80 km/h, gusting to 90. "
      "209 mm of rain fell at Patrapur. No deaths were reported.",
-     "akvan"),
+     "akvan", "IMD"),
     (3, "ASIA-PACIFIC", "ASIA TO WALL ST", "MARKETS",
      "AI sell-off goes global: Asia sinks, Wall St follows",
      "Friday closes: Nikkei -4.77%, KOSPI -5.21%, Taiex -6.63%; then "
      "S&P -3.70% to 6,910, Nasdaq -5.28% to 22,618, Dow -1.93%.",
-     "markets"),
+     "markets", "MORNINGSTAR"),
 ]
 
-# (num, region, place, field, banner, headline, deck, scene) -- mediums
-# are numbered 4 to 13; decks fit two lines in the v2 grid.
+# (num, region, place, field, banner, headline, deck, scene, source) --
+# mediums are numbered 4 to 13; decks fit two lines in the v2 grid.
 MEDIUMS = [
     (4, "WORLD", "ANTALYA", "CLIMATE", "COP31: NO DEAL",
      "COP31 ends its final day with no deal",
      "Draft drops fossil fuels and the $120bn goal; talks run into "
      "overtime.",
-     "cop31"),
+     "cop31", "UN NEWS"),
     (5, "EUROPE", "BRUSSELS", "DIPLOMACY", "UK-EU DEAL",
      "UK and EU seal reset deal",
      "100,000 youth visas a year; food checks end; carbon markets "
      "linked.",
-     "ukeu"),
+     "ukeu", "REUTERS"),
     (6, "ASIA-PACIFIC", "TOKYO", "ECONOMY", "JAPAN +2.3%",
      "Japan inflation 2.3%; rate rise eyed",
      "CPI 2.3% headline, 2.2% core; BoJ seen hiking to 1.50% in "
      "December.",
-     "japan"),
+     "japan", "REUTERS"),
     (7, "AFRICA", "TURKANA, KENYA", "ENERGY", "KENYA: OIL",
      "Kenya drills its first oil well",
      "Amosing 1 spudded in Turkana; first oil 1 Dec at 20,000 barrels "
      "a day.",
-     "kenya"),
+     "kenya", "CAPITAL FM"),
     (8, "MIDDLE EAST", "CENTRAL IRAQ", "SECURITY", "IRAQ: ARMY IN",
      "Iraqi troops enter militia stronghold",
      "Troops enter Jurf al-Sakhar, a Kataib Hezbollah base near "
      "Baghdad.",
-     "iraq"),
+     "iraq", "REUTERS"),
     (9, "AFRICA", "BLANTYRE, MALAWI", "FUEL", "FUEL CRISIS",
      "Malawi rations fuel to 20 litres a day",
      "Queues for hours in Blantyre; black-market petrol $17 for two "
      "litres.",
-     "malawi"),
+     "malawi", "AL JAZEERA"),
     (10, "EUROPE", "ROME", "LABOUR", "ITALY: STRIKE",
      "Italy hit by 24-hour general strike",
      "Tens of thousands march in 100+ cities against the 2027 budget.",
-     "italy"),
+     "italy", "REUTERS"),
     (11, "ASIA-PACIFIC", "SEOUL", "COURTS", "SEOUL: IMPEACH",
      "Seoul moves to impeach top judge",
      "Ruling party moves against Chief Justice Cho Hee-dae in the Han "
      "case.",
-     "seoul"),
+     "seoul", "AJU PRESS"),
     (12, "OCEANIA", "WELLINGTON", "CRICKET", "PHILLIPS: 118",
      "Phillips 118 powers New Zealand",
      "Phillips 118, Nicholls 175 not out; New Zealand 368 in "
      "Wellington.",
-     "cricket"),
+     "cricket", "CRICBUZZ"),
     (13, "AMERICAS", "LAS VEGAS", "FORMULA 1", "RUSSELL: P1",
      "Russell fastest in wet Las Vegas",
      "Russell fastest in a wet FP2, 1:47.272; FP1 washed out.",
-     "vegas"),
+     "vegas", "FORMULA1.COM"),
 ]
 
-# (region, one-line brief) -- numbered 14 to 33 in the page,
+# (region, one-line brief) -- numbered 14 to 35 in the page,
 # grouped by continent in the strip's order (EUROPE, ASIA-PACIFIC,
 # AMERICAS, MIDDLE EAST, AFRICA, WORLD) so each column reads
 # region by region. Map pins carry the same numbers; see PINS.
+# v4: every brief carries its source in parentheses (the two calendar
+# items, Mexico and Sao Paulo, and the Dakar item have none -- no wire
+# source was verified for them); two verified stories join the list,
+# the daraxonrasib trial in Barcelona (19) and Nvidia's SEC probe (31).
 ALSO = [
-    ("EUROPE", "POLAND: Kh-101 missile and a drone come down near the border; no injuries; Warsaw calls it a provocation."),
-    ("EUROPE", "LVIV: Strike on Sknyliv station kills two and wrecks the ticket hall; 10 in hospital."),
-    ("EUROPE", "ATP FINALS: Medvedev beats Tiafoe 6-3, 6-4 for the last semi; Alcaraz beats Cobolli 6-4, 6-1."),
-    ("EUROPE", "KHARKIV: Drone hits a hospital in the overnight barrage; at least four hurt."),
-    ("EUROPE", "BERLIN: School pupils strike against military service."),
-    ("ASIA-PACIFIC", "CHINA-AUSTRALIA: Xi hails a 'comprehensive turnaround' as he meets Albanese in Shenzhen."),
-    ("ASIA-PACIFIC", "CHINA: Lending rates held for an 18th month - 1-year 3.00%, 5-year 3.50%."),
-    ("ASIA-PACIFIC", "ROHINGYA: Bangladesh FM visits Cox's Bazar camps; Myanmar dismisses the ICJ ruling as 'unfair'."),
-    ("ASIA-PACIFIC", "CHIPS: SoftBank -14.6%, Samsung -7.0%, SK Hynix -5.9%; Seoul triggers sidecar curbs twice."),
-    ("ASIA-PACIFIC", "TAIWAN: Short-selling curbs take effect as the Taiex caps its worst week since 1991."),
-    ("AMERICAS", "EL SALVADOR: Bukele files for a third term at Thursday night's deadline; vote 28 Feb 2027."),
-    ("AMERICAS", "FLORIDA: St Johns River holds above its all-time record, 18.7 ft at Cocoa; schools shut in four counties."),
+    ("EUROPE", "POLAND: Kh-101 missile and a drone come down near the border; no injuries; Warsaw calls it a provocation. (REUTERS)"),
+    ("EUROPE", "LVIV: Strike on Sknyliv station kills two and wrecks the ticket hall; 10 in hospital. (REUTERS)"),
+    ("EUROPE", "ATP FINALS: Medvedev beats Tiafoe 6-3, 6-4 for the last semi; Alcaraz beats Cobolli 6-4, 6-1. (ATP)"),
+    ("EUROPE", "KHARKIV: Drone hits a hospital in the overnight barrage; at least four hurt. (UKRINFORM)"),
+    ("EUROPE", "BERLIN: School pupils strike against military service. (AL JAZEERA)"),
+    ("EUROPE", "BARCELONA: Daraxonrasib pill shrinks pancreatic tumours in 60.7% of patients in a 61-patient trial. (MEDICALXPRESS)"),
+    ("ASIA-PACIFIC", "CHINA-AUSTRALIA: Xi hails a 'comprehensive turnaround' as he meets Albanese in Shenzhen. (REUTERS)"),
+    ("ASIA-PACIFIC", "CHINA: Lending rates held for an 18th month - 1-year 3.00%, 5-year 3.50%. (REUTERS)"),
+    ("ASIA-PACIFIC", "ROHINGYA: Bangladesh FM visits Cox's Bazar camps; Myanmar dismisses the ICJ ruling as 'unfair'. (TBS NEWS)"),
+    ("ASIA-PACIFIC", "CHIPS: SoftBank -14.6%, Samsung -7.0%, SK Hynix -5.9%; Seoul triggers sidecar curbs twice. (MORNINGSTAR)"),
+    ("ASIA-PACIFIC", "TAIWAN: Short-selling curbs take effect as the Taiex caps its worst week since 1991. (REUTERS)"),
+    ("AMERICAS", "EL SALVADOR: Bukele files for a third term at Thursday night's deadline; vote 28 Feb 2027. (REUTERS)"),
+    ("AMERICAS", "FLORIDA: St Johns River holds above its all-time record, 18.7 ft at Cocoa; schools shut in four counties. (AP)"),
     ("AMERICAS", "MEXICO: Nation marks the 116th anniversary of the Revolution."),
     ("AMERICAS", "SAO PAULO: Markets shut for Black Consciousness Day."),
-    ("AMERICAS", "COP31: Panama asks the summit to cap world oil output."),
-    ("AMERICAS", "WALL ST: S&P -3.70% in correction, Nasdaq -5.28% as the AI rout reaches the US; Dow -1.93%."),
-    ("MIDDLE EAST", "OMAN: Tanker hit by an unknown projectile off Khasab; fire on board, no casualties. Brent about $92.50."),
+    ("AMERICAS", "COP31: Panama asks the summit to cap world oil output. (ANADOLU)"),
+    ("AMERICAS", "WALL ST: S&P -3.70% in correction, Nasdaq -5.28% as the AI rout reaches the US; Dow -1.93%. (AP)"),
+    ("AMERICAS", "NVIDIA: Shares fall 14% to $125.53 as Reuters reports the SEC is examining its accounting. (REUTERS)"),
+    ("MIDDLE EAST", "OMAN: Tanker hit by an unknown projectile off Khasab; fire on board, no casualties. Brent about $92.50. (REUTERS)"),
     ("AFRICA", "DAKAR: Four bodies found after Thursday's migrant boat capsizing off Senegal."),
-    ("WORLD", "GOLD: Slides to its lowest in more than a year as investors sell to cover losses."),
-    ("WORLD", "WORLD: UN marks World Children's Day across member states."),
+    ("WORLD", "GOLD: Slides to its lowest in more than a year as investors sell to cover losses. (MORNINGSTAR)"),
+    ("WORLD", "WORLD: UN marks World Children's Day across member states. (UN)"),
 ]
 
 # story number -> region, for the per-continent number/pin colours.
@@ -1415,7 +1452,7 @@ DATE_CHECK = [
 ]
 
 FOOTER = [
-    "Sources: Reuters, CNN, AP, AFP, BBC, IMD, The Hindu, Morningstar, Aju Press, Cricbuzz, Formula1.com, ATP, UKMTO, UN News, Carbon Brief.",
+    "Sources: Reuters, CNN, AP, AFP, BBC, IMD, The Hindu, Morningstar, Aju Press, Cricbuzz, Formula1.com, ATP, UKMTO, UN News, Carbon Brief, MedicalXpress, Barron's.",
     "Original drawings. Contested claims are attributed; market figures are Friday closes unless labelled intraday. Press time 21:00 UTC.",
 ]
 
@@ -1478,9 +1515,10 @@ def build():
     font.draw(cv, 24, 160, "THE DAY'S THREE BIG STORIES", 12, NAVY)
     cv.hline(24, 1000, 166, MIDGREY, 1)
     cols = [24, 352, 680]
-    for (num, region, place, field, head, deck, art), x in zip(LEADS, cols):
+    for (num, region, place, field, head, deck, art, src), x in zip(LEADS, cols):
         ART[art](cv, x, 172, 320, 118, serif_b)
         cv.rect_outline(x, 172, 320, 118, NAVY, 1)
+        source_chip(cv, serif_b, x, 172, 320, 118, src, top=True)
         tag = "%d - %s - %s" % (num, place, field)
         serif_b.draw(cv, x, 302, tag, 11, RED)
         lines = wrap_text(serif_b, head, 19, 320)
@@ -1492,7 +1530,7 @@ def build():
     # medium grid, 5 columns x 2 rows, full HUD scenes
     cv.hline(24, 1000, 396, INK, 1)
     serif_b.draw(cv, 24, 412, "MORE OF THE DAY", 12, NAVY)
-    for (num, region, place, field, banner, head, deck, scene) in MEDIUMS:
+    for (num, region, place, field, banner, head, deck, scene, src) in MEDIUMS:
         idx = num - 4
         col = idx % 5
         row = idx // 5
@@ -1501,6 +1539,7 @@ def build():
         SCENES[scene](cv, x, y, 188, 58)
         scene_banner(cv, serif_b, x, y, 188, banner)
         cv.rect_outline(x, y, 188, 58, NAVY, 1)
+        source_chip(cv, serif_b, x, y, 188, 58, src)
         tag = "%d - %s - %s" % (num, place, field)
         serif_b.draw(cv, x, y + 72, tag, 10, REGION_COLOR[region])
         draw_wrapped(cv, serif_b, x, y + 76, head, 12, INK, 188, 14)
@@ -1509,20 +1548,23 @@ def build():
     # world map, dot-matrix HUD
     cv.hline(24, 1000, 696, INK, 1)
     serif_b.draw(cv, 24, 712, "WHERE IT HAPPENED", 12, NAVY)
-    serif.draw(cv, 1000 - serif.text_width("14 OF TODAY'S 33 STORIES PINNED", 11),
-               712, "14 OF TODAY'S 33 STORIES PINNED", 11, GREY)
+    serif.draw(cv, 1000 - serif.text_width("14 OF TODAY'S 35 STORIES PINNED", 11),
+               712, "14 OF TODAY'S 35 STORIES PINNED", 11, GREY)
     draw_map(cv, 24, 718, 976, 116, PINS, serif_b)
 
-    # also list: each number wears its continent's colour (num_colour,
-    # the same colour as its pin on the map); only
-    # the country/subject lead-in is bold navy, the rest is regular ink
+    # also list: 22 briefs in 2 columns of 11 (v4: two more stories).
+    # Rows sit 9 px apart -- the date-check box starts at y=970, so the
+    # last baseline (y+9) lands at 963. Each number wears its
+    # continent's colour (num_colour, the same colour as its pin on the
+    # map); only the country/subject lead-in is bold navy, the rest is
+    # regular ink
     cv.hline(24, 1000, 842, INK, 1)
     serif_b.draw(cv, 24, 858, "ALSO ON FRIDAY 20 NOVEMBER", 12, NAVY)
     for i, (region, text) in enumerate(ALSO):
-        col = i // 10
-        row = i % 10
+        col = i // 11
+        row = i % 11
         x = 24 + col * 498
-        y = 864 + row * 10
+        y = 864 + row * 9
         num = "%d." % (14 + i)
         lead, rest = text.split(": ", 1)
         lead += ":"

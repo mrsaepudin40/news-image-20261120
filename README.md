@@ -5,8 +5,8 @@
 [![reward](https://make.fun/badge/news-image-20261120/mrsaepudin40/news-image-20261120/reward.svg)](https://make.fun/bounty/news-image-20261120?utm_source=github&utm_medium=readme&utm_campaign=news-image-20261120)
 
 A pure-stdlib Python program that draws one 1024x1024 newspaper front
-page summing up the world news of Friday 20 November 2026: 33 stories
-(3 illustrated leads, 10 pictured medium stories, 20 more in brief), a
+page summing up the world news of Friday 20 November 2026: 35 stories
+(3 illustrated leads, 10 pictured medium stories, 22 more in brief), a
 world map with 14 numbered pins, a six-number stat strip, a DATE CHECK
 box and a source footer. The masthead sits on a dark navy band. v2
 restyles every picture as a futuristic HUD panel (dark navy, neon and
@@ -17,6 +17,11 @@ late-evening results v2 flagged as after press time: the US market
 close (S&P -3.70%, Nasdaq -5.28%), Medvedev beating Tiafoe 6-3, 6-4
 for the last ATP semi-final spot, and COP31 running into overtime
 with no deal on Friday; the markets lead now runs Asia to Wall St.
+v4 answers the top-10 comparison of 21 Nov: every drawn story carries
+a source chip in its art's corner, the briefs carry their sources in
+parentheses, two verified stories join (Nvidia's SEC probe, the
+daraxonrasib cancer trial), and the map is lightened to a cream panel
+with navy continents.
 
 Run it with no arguments:
 
@@ -27,7 +32,7 @@ It writes `/output/entry.png` when that directory exists (or when
 no third-party packages, deterministic: two runs write byte-identical
 PNGs.
 
-All 33 headlines were re-verified against reports dated 20 November
+All 35 headlines were re-verified against reports dated 20 November
 2026. Nine stories that broke on Thursday 19 November (the Shenzhen
 summit, the Anthropic IPO, the ICJ Myanmar verdict, the GTA VI launch,
 Fiona the hippo, Australia's U17 win over Argentina, the Lula–Raoni
