@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The World in One Day -- Friday 20 November 2026 (v2, HUD restyle).
+"""The World in One Day -- Friday 20 November 2026 (v3).
 
 A pure-stdlib program (no Pillow, no network) that draws one 1024x1024
 newspaper front page summing up the world news of Friday 20 November
@@ -18,10 +18,12 @@ small pictogram icons. Two briefs are promoted to pictured mediums
 seventh region; the story total stays 33 -- no new unverified story
 was added. Every headline was checked against reports dated
 20 November 2026 before it was drawn. Market figures are Friday
-closes, labelled as closes; the US close, the COP31 final text and
-Medvedev v Tiafoe all fell after the 17:30 UTC press time and are
-flagged as such. Contested claims are attributed in the text, never
-stated as fact.
+closes, labelled as closes. v3 (press time 21:00 UTC) adds the
+late-evening results v2 flagged as after press time: the US market
+close (S&P -3.70%, Nasdaq -5.28%), Medvedev beating Tiafoe 6-3, 6-4
+for the last ATP semi-final spot, and COP31 running into overtime
+with no deal on Friday. Contested claims are attributed in the text,
+never stated as fact.
 
 All pictures are flat vector drawings made in code; the only files
 the program reads are the three Liberation Serif fonts beside it.
@@ -1211,15 +1213,19 @@ def art_markets(cv, x, y, w, h, serif_b):
     cv.polyline([(x + 20 + i * 26, y + t) for i, t in enumerate(tops)],
                 (255, 90, 90), 2)
     # Friday closes table, right side (no arrow: the table is the data)
+    # v3: Asia closes on top, US closes below the gold rule -- the
+    # sell-off went global on Friday (S&P -3.70%, Nasdaq -5.28%).
     rows = [("TAIPEI", "-6.63%"), ("SEOUL", "-5.21%"),
-            ("TOKYO", "-4.77%"), ("HONG KONG", "-1.89%")]
+            ("TOKYO", "-4.77%"), ("HONG KONG", "-1.89%"),
+            ("NASDAQ", "-5.28%"), ("S&P 500", "-3.70%")]
     for i, (name, val) in enumerate(rows):
-        ry = y + 62 + i * 11
+        ry = y + 56 + i * 10
         serif_b.draw(cv, x + 204, ry, name, 9, (251, 247, 234))
         vw = serif_b.text_width(val, 9)
         serif_b.draw(cv, x + 314 - vw, ry, val, 9, (255, 110, 110))
+    cv.hline(x + 204, x + 314, y + 91, GOLD, 1)
     lead_banner(cv, serif_b, x + 6, y + 6, "AI SELL-OFF",
-                "Asia, Friday's close")
+                "Asia to Wall St, Friday's close")
     hud_corners(cv, x, y, w, h, GOLD, 10, 2)
 
 # ---------------------------------------------------------------- stories
@@ -1237,11 +1243,10 @@ LEADS = [
      "Crossed the Odisha coast with winds of 70-80 km/h, gusting to 90. "
      "209 mm of rain fell at Patrapur. No deaths were reported.",
      "akvan"),
-    (3, "ASIA-PACIFIC", "TOKYO - SEOUL - TAIPEI", "MARKETS",
-     "AI sell-off sinks Asia: Nikkei -4.77%, KOSPI -5.21%, Taiex -6.63%",
-     "Friday closes: Nikkei 56,606; KOSPI 4,869.96, below 5,000; Taiex "
-     "35,877.63, worst week since 1991. SoftBank fell 14.6%, Samsung "
-     "7.0%.",
+    (3, "ASIA-PACIFIC", "ASIA TO WALL ST", "MARKETS",
+     "AI sell-off goes global: Asia sinks, Wall St follows",
+     "Friday closes: Nikkei -4.77%, KOSPI -5.21%, Taiex -6.63%; then "
+     "S&P -3.70% to 6,910, Nasdaq -5.28% to 22,618, Dow -1.93%.",
      "markets"),
 ]
 
@@ -1250,8 +1255,8 @@ LEADS = [
 MEDIUMS = [
     (4, "WORLD", "ANTALYA", "CLIMATE", "COP31: NO DEAL",
      "COP31 ends its final day with no deal",
-     "Draft drops fossil-fuel mentions and the $120bn goal; '35 by 35' "
-     "survives.",
+     "Draft drops fossil fuels and the $120bn goal; talks run into "
+     "overtime.",
      "cop31"),
     (5, "EUROPE", "BRUSSELS", "DIPLOMACY", "UK-EU DEAL",
      "UK and EU seal reset deal",
@@ -1306,7 +1311,7 @@ ALSO = [
     ("AMERICAS", "EL SALVADOR: Bukele files for a third term at Thursday night's deadline; vote 28 Feb 2027."),
     ("ASIA-PACIFIC", "CHINA-AUSTRALIA: Xi hails a 'comprehensive turnaround' as he meets Albanese in Shenzhen."),
     ("ASIA-PACIFIC", "CHINA: Lending rates held for an 18th month - 1-year 3.00%, 5-year 3.50%."),
-    ("EUROPE", "ATP FINALS: Alcaraz beats Cobolli 6-4, 6-1 (3-0); Medvedev v Tiafoe tonight for the last semi."),
+    ("EUROPE", "ATP FINALS: Medvedev beats Tiafoe 6-3, 6-4 for the last semi; Alcaraz beats Cobolli 6-4, 6-1."),
     ("ASIA-PACIFIC", "ROHINGYA: Bangladesh FM visits Cox's Bazar camps; Myanmar dismisses the ICJ ruling as 'unfair'."),
     ("ASIA-PACIFIC", "CHIPS: SoftBank -14.6%, Samsung -7.0%, SK Hynix -5.9%; Seoul triggers sidecar curbs twice."),
     ("WORLD", "GOLD: Slides to its lowest in more than a year as investors sell to cover losses."),
@@ -1319,7 +1324,7 @@ ALSO = [
     ("WORLD", "WORLD: UN marks World Children's Day across member states."),
     ("EUROPE", "BERLIN: School pupils strike against military service."),
     ("AMERICAS", "COP31: Panama asks the summit to cap world oil output."),
-    ("AMERICAS", "WALL ST: Nasdaq falls about 2% intraday Friday as the AI rout rolls on; Thursday's close: Dow -2.19%."),
+    ("AMERICAS", "WALL ST: S&P -3.70% in correction, Nasdaq -5.28% as the AI rout reaches the US; Dow -1.93%."),
 ]
 
 NUMBERS = [
@@ -1374,13 +1379,13 @@ DATE_CHECK = [
      "South Africa Test win; Senegal budget decree.", False, INK),
     ("NOT YET:", True, RED),
     ("BepiColombo Mercury arrival (21 Nov).", False, INK),
-    ("AFTER PRESS TIME:", True, RED),
-    ("COP31 final text; US market close; Medvedev v Tiafoe.", False, INK),
+    ("IN THIS EDITION:", True, RED),
+    ("US close; Medvedev win; COP31 overtime.", False, INK),
 ]
 
 FOOTER = [
     "Sources: Reuters, CNN, AP, AFP, BBC, IMD, The Hindu, Morningstar, Aju Press, Cricbuzz, Formula1.com, ATP, UKMTO, UN News, Carbon Brief.",
-    "Original drawings. Contested claims are attributed; market figures are Friday closes unless labelled intraday. Press time 17:30 UTC.",
+    "Original drawings. Contested claims are attributed; market figures are Friday closes unless labelled intraday. Press time 21:00 UTC.",
 ]
 
 ART = {"kyiv": art_kyiv, "akvan": art_akvan, "markets": art_markets}

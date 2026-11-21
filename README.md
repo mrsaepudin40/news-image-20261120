@@ -12,7 +12,11 @@ box and a source footer. The masthead sits on a dark navy band. v2
 restyles every picture as a futuristic HUD panel (dark navy, neon and
 gold, corner brackets, dot-matrix map) and promotes the Wellington
 cricket and Las Vegas GP briefs to pictured mediums, adding Oceania
-as the seventh region; the story total stays 33.
+as the seventh region; the story total stays 33. v3 adds the
+late-evening results v2 flagged as after press time: the US market
+close (S&P -3.70%, Nasdaq -5.28%), Medvedev beating Tiafoe 6-3, 6-4
+for the last ATP semi-final spot, and COP31 running into overtime
+with no deal on Friday; the markets lead now runs Asia to Wall St.
 
 Run it with no arguments:
 
