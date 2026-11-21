@@ -1303,28 +1303,31 @@ MEDIUMS = [
      "vegas"),
 ]
 
-# (region, one-line brief) -- numbered 14 to 33 in the page.
+# (region, one-line brief) -- numbered 14 to 33 in the page,
+# grouped by continent in the strip's order (EUROPE, ASIA-PACIFIC,
+# AMERICAS, MIDDLE EAST, AFRICA, WORLD) so each column reads
+# region by region. Map pins carry the same numbers; see PINS.
 ALSO = [
     ("EUROPE", "POLAND: Kh-101 missile and a drone come down near the border; no injuries; Warsaw calls it a provocation."),
     ("EUROPE", "LVIV: Strike on Sknyliv station kills two and wrecks the ticket hall; 10 in hospital."),
-    ("MIDDLE EAST", "OMAN: Tanker hit by an unknown projectile off Khasab; fire on board, no casualties. Brent about $92.50."),
-    ("AMERICAS", "EL SALVADOR: Bukele files for a third term at Thursday night's deadline; vote 28 Feb 2027."),
+    ("EUROPE", "ATP FINALS: Medvedev beats Tiafoe 6-3, 6-4 for the last semi; Alcaraz beats Cobolli 6-4, 6-1."),
+    ("EUROPE", "KHARKIV: Drone hits a hospital in the overnight barrage; at least four hurt."),
+    ("EUROPE", "BERLIN: School pupils strike against military service."),
     ("ASIA-PACIFIC", "CHINA-AUSTRALIA: Xi hails a 'comprehensive turnaround' as he meets Albanese in Shenzhen."),
     ("ASIA-PACIFIC", "CHINA: Lending rates held for an 18th month - 1-year 3.00%, 5-year 3.50%."),
-    ("EUROPE", "ATP FINALS: Medvedev beats Tiafoe 6-3, 6-4 for the last semi; Alcaraz beats Cobolli 6-4, 6-1."),
     ("ASIA-PACIFIC", "ROHINGYA: Bangladesh FM visits Cox's Bazar camps; Myanmar dismisses the ICJ ruling as 'unfair'."),
     ("ASIA-PACIFIC", "CHIPS: SoftBank -14.6%, Samsung -7.0%, SK Hynix -5.9%; Seoul triggers sidecar curbs twice."),
-    ("WORLD", "GOLD: Slides to its lowest in more than a year as investors sell to cover losses."),
-    ("AMERICAS", "FLORIDA: St Johns River holds above its all-time record, 18.7 ft at Cocoa; schools shut in four counties."),
     ("ASIA-PACIFIC", "TAIWAN: Short-selling curbs take effect as the Taiex caps its worst week since 1991."),
-    ("EUROPE", "KHARKIV: Drone hits a hospital in the overnight barrage; at least four hurt."),
-    ("AFRICA", "DAKAR: Four bodies found after Thursday's migrant boat capsizing off Senegal."),
+    ("AMERICAS", "EL SALVADOR: Bukele files for a third term at Thursday night's deadline; vote 28 Feb 2027."),
+    ("AMERICAS", "FLORIDA: St Johns River holds above its all-time record, 18.7 ft at Cocoa; schools shut in four counties."),
     ("AMERICAS", "MEXICO: Nation marks the 116th anniversary of the Revolution."),
     ("AMERICAS", "SAO PAULO: Markets shut for Black Consciousness Day."),
-    ("WORLD", "WORLD: UN marks World Children's Day across member states."),
-    ("EUROPE", "BERLIN: School pupils strike against military service."),
     ("AMERICAS", "COP31: Panama asks the summit to cap world oil output."),
     ("AMERICAS", "WALL ST: S&P -3.70% in correction, Nasdaq -5.28% as the AI rout reaches the US; Dow -1.93%."),
+    ("MIDDLE EAST", "OMAN: Tanker hit by an unknown projectile off Khasab; fire on board, no casualties. Brent about $92.50."),
+    ("AFRICA", "DAKAR: Four bodies found after Thursday's migrant boat capsizing off Senegal."),
+    ("WORLD", "GOLD: Slides to its lowest in more than a year as investors sell to cover losses."),
+    ("WORLD", "WORLD: UN marks World Children's Day across member states."),
 ]
 
 NUMBERS = [
@@ -1338,6 +1341,9 @@ NUMBERS = [
 
 # (story number, lon, lat, dx, dy) -- pins on the map. Europe's pins
 # fan out with leader lines: the true positions sit within a few pixels.
+# Also-list pins are 14 (Poland), 15 (Lviv), 16 (Turin) and 18 (Berlin)
+# after the continent sort of the also-list; their fan offsets travel
+# with the place, not the old number.
 # Fan offsets are tuned so every disc (glow r=10) stays >=4 px inside
 # the panel -- 15 and 31 used to poke 4-6 px over the top edge.
 PINS = [
@@ -1346,8 +1352,8 @@ PINS = [
     (15, 24.0, 49.8, 20, -8),
     (5, -0.1, 51.5, -26, 0),
     (10, 12.5, 41.9, -4, 22),
-    (31, 13.4, 52.5, -2, -8),
-    (20, 7.7, 45.1, -16, 16),
+    (18, 13.4, 52.5, -2, -8),
+    (16, 7.7, 45.1, -16, 16),
     (4, 30.7, 36.9, 28, 14),
     (2, 84.9, 19.3, 0, 0),
     (11, 127.0, 37.5, 0, 0),
